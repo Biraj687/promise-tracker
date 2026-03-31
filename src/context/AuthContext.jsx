@@ -83,9 +83,9 @@ export const AuthProvider = ({ children }) => {
       const queryWithTimeout = async () => {
         return new Promise(async (resolve, reject) => {
           const timeout = setTimeout(() => {
-            console.error('❌ Profile query timeout after 6 seconds');
-            reject(new Error('Profile query timeout - Supabase took too long to respond'));
-          }, 6000);
+            console.error('❌ Profile query timeout after 4 seconds');
+            reject(new Error('Profile query timeout'));
+          }, 4000);
 
           try {
             console.log('📡 Fetching profile from Supabase...');
@@ -142,8 +142,11 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setError(err.message || 'Authentication failed');
       
-      // Force logout if profile validation fails
-      await supabase.auth.signOut();
+      // Only force logout if it's not the initial check
+      // If it's initial check (loading is still true), just keep user null
+      if (!loading) {
+        await supabase.auth.signOut();
+      }
       return { success: false, error: err.message };
     }
   };
@@ -154,10 +157,10 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       console.log('🔍 Checking session...');
       
-      // Set a timeout to prevent hanging
+      // Set a timeout to prevent hanging (3 seconds for initial load)
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Session check timeout')), 5000)
+        setTimeout(() => reject(new Error('Session check timeout')), 3000)
       );
 
       const { data: { session }, error: sessionError } = await Promise.race([
@@ -270,8 +273,6 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
     } finally {
       setLoading(false);
-    }
-  };
     }
   };
 
