@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }) => {
               .from('profiles')
               .select('id, email, role')
               .eq('id', authUser.id)
-              .single();
+              .maybeSingle();
 
             clearTimeout(timeout);
 
