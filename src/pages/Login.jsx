@@ -7,7 +7,8 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState('');
-  const { login, loading } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,12 +23,20 @@ const Login = () => {
       return;
     }
 
-    const result = await login(email, password);
-    
-    if (result.success) {
-      navigate(from, { replace: true });
-    } else {
-      setLocalError(result.error || 'Login failed');
+    setIsSubmitting(true);
+    try {
+      const result = await login(email, password);
+      
+      if (result.success) {
+        navigate(from, { replace: true });
+      } else {
+        setLocalError(result.error || 'Login failed');
+      }
+    } catch (err) {
+      setLocalError(err.message || 'Login failed');
+      console.error('Login error:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -58,7 +67,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={loading}
+                disabled={isSubmitting}
                 placeholder="admin@gov.np"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all bg-slate-50 focus:bg-white placeholder-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
               />
@@ -71,7 +80,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={loading}
+                disabled={isSubmitting}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all bg-slate-50 focus:bg-white placeholder-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 placeholder="••••••••"
               />
@@ -79,10 +88,10 @@ const Login = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting}
               className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all focus:ring-4 focus:ring-blue-500/30 flex justify-center items-center disabled:cursor-not-allowed"
             >
-              {loading ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin mr-2" />
                   Authenticating...

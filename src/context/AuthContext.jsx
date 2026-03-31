@@ -12,14 +12,21 @@ export const AuthProvider = ({ children }) => {
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        // Fetch and validate admin role
-        await fetchAndValidateAdminProfile(session.user);
-      } else {
+      try {
+        if (session?.user) {
+          // Fetch and validate admin role
+          await fetchAndValidateAdminProfile(session.user);
+        } else {
+          setUser(null);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Auth state change error:', err);
         setUser(null);
-        setError(null);
+        setError(err.message || 'Authentication failed');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription?.unsubscribe();
@@ -30,11 +37,21 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       
-      const { data: profile, error: profileError } = await supabase
+      // ⏱️ Add timeout to prevent hanging
+      const profilePromise = supabase
         .from('profiles')
         .select('id, email, role')
         .eq('id', authUser.id)
         .single();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile query timeout - took too long')), 8000)
+      );
+
+      const { data: profile, error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]);
 
       if (profileError) {
         throw new Error(`Profile fetch failed: ${profileError.message}`);
@@ -101,6 +118,12 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
+      if (!email || !password) {
+        setError('Email and password are required');
+        setLoading(false);
+        return { success: false, error: 'Email and password are required' };
+      }
+
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -109,24 +132,30 @@ export const AuthProvider = ({ children }) => {
       if (signInError) {
         const errorMsg = signInError.message || 'Login failed';
         setError(errorMsg);
+        setLoading(false);
         return { success: false, error: errorMsg };
       }
 
-      if (data?.user) {
-        // Validate admin role and get result
-        const result = await fetchAndValidateAdminProfile(data.user);
-        return result;
+      if (!data?.user) {
+        setError('Login failed: No user data returned');
+        setLoading(false);
+        return { success: false, error: 'Login failed' };
       }
+
+      // Validate admin role and get result
+      const result = await fetchAndValidateAdminProfile(data.user);
       
-      setError('Login failed: No user data returned');
-      return { success: false, error: 'Login failed' };
+      // Always ensure loading is false after profile check
+      setLoading(false);
+      
+      return result;
     } catch (err) {
       const errorMsg = err.message || 'Login failed';
       setError(errorMsg);
       setUser(null);
-      return { success: false, error: errorMsg };
-    } finally {
       setLoading(false);
+      console.error('Login error:', err);
+      return { success: false, error: errorMsg };
     }
   };
 
