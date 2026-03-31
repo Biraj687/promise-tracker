@@ -7,16 +7,54 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    checkSession();
+    // Prevent multiple initializations
+    if (isInitialized) return;
+    
+    let isMounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const initializeAuth = async () => {
       try {
-        if (session?.user) {
-          // Fetch and validate admin role
+        console.log('🔍 Initializing authentication...');
+        await checkSession();
+        if (isMounted) setIsInitialized(true);
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        if (isMounted) setIsInitialized(true);
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth state changes (for token refresh, logout from other tabs, etc)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
+      console.log('🔄 Auth state changed:', event);
+
+      try {
+        if (event === 'SIGNED_OUT') {
+          // User signed out
+          console.log('👋 User signed out');
+          setUser(null);
+          setError(null);
+          return;
+        }
+
+        if (event === 'TOKEN_REFRESHED') {
+          // Token was refreshed, no need to re-fetch profile
+          console.log('🔄 Token refreshed');
+          return;
+        }
+
+        if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+          // User signed in or session changed, validate profile
+          console.log('👤 Validating profile for event:', event);
           await fetchAndValidateAdminProfile(session.user);
-        } else {
+        } else if (!session?.user) {
+          // No session
           setUser(null);
           setError(null);
         }
@@ -29,8 +67,11 @@ export const AuthProvider = ({ children }) => {
       }
     });
 
-    return () => subscription?.unsubscribe();
-  }, []);
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
+  }, [isInitialized]);
 
   // Fetch profile and STRICTLY validate admin role
   const fetchAndValidateAdminProfile = async (authUser) => {
@@ -110,8 +151,19 @@ export const AuthProvider = ({ children }) => {
   const checkSession = async () => {
     try {
       setLoading(true);
+      setError(null);
       console.log('🔍 Checking session...');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      // Set a timeout to prevent hanging
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Session check timeout')), 5000)
+      );
+
+      const { data: { session }, error: sessionError } = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]);
 
       if (sessionError) {
         throw new Error(`Session check failed: ${sessionError.message}`);
@@ -123,8 +175,8 @@ export const AuthProvider = ({ children }) => {
       } else {
         console.log('❌ No session found');
         setUser(null);
+        setError(null);
       }
-      setError(null);
     } catch (err) {
       console.error('Session check error:', err);
       setError(err.message);
@@ -147,10 +199,21 @@ export const AuthProvider = ({ children }) => {
       }
 
       console.log('📝 Calling Supabase signInWithPassword...');
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      
+      // Set timeout for login request
+      const loginPromise = supabase.auth.signInWithPassword({
         email,
         password
       });
+      
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Login timeout - request took too long')), 10000)
+      );
+
+      const { data, error: signInError } = await Promise.race([
+        loginPromise,
+        timeoutPromise
+      ]);
 
       if (signInError) {
         console.error('❌ Sign in error:', signInError);
@@ -188,6 +251,9 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       setLoading(true);
+      setError(null);
+      console.log('👋 Logging out...');
+      
       const { error: signOutError } = await supabase.auth.signOut();
 
       if (signOutError) {
@@ -196,6 +262,7 @@ export const AuthProvider = ({ children }) => {
 
       setUser(null);
       setError(null);
+      console.log('✅ Logout successful');
     } catch (err) {
       console.error('Logout error:', err);
       setError(err.message);
@@ -203,6 +270,8 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
     } finally {
       setLoading(false);
+    }
+  };
     }
   };
 
