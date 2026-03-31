@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'r
 import { DataProvider } from './context/DataContext';
 import { AuthProvider } from './context/AuthContext';
 import { ConfigProvider } from './context/ConfigContext';
+import { ToastProvider } from './context/ToastContext';
 import PromiseOverview from './pages/PromiseOverview';
 import BalenTracker from './pages/BalenTracker';
 import Tracker from './pages/Tracker';
@@ -73,7 +74,9 @@ function App() {
       <ConfigProvider>
         <AuthProvider>
           <DataProvider>
-            <AppRoutes />
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
           </DataProvider>
         </AuthProvider>
       </ConfigProvider>

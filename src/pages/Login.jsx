@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ShieldAlert, Loader2 } from 'lucide-react';
+import { ShieldAlert, Loader2, AlertCircle } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const { login } = useAuth();
+  const [localError, setLocalError] = useState('');
+  const { login, loading } = useAuth();
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,17 +15,20 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErrorMsg('');
+    setLocalError('');
+
+    if (!email || !password) {
+      setLocalError('Please enter both email and password');
+      return;
+    }
 
     const result = await login(email, password);
     
     if (result.success) {
       navigate(from, { replace: true });
     } else {
-      setErrorMsg(result.error);
+      setLocalError(result.error || 'Login failed');
     }
-    setLoading(false);
   };
 
   return (
@@ -42,9 +44,10 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {errorMsg && (
-              <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm font-medium text-center border border-red-100">
-                {errorMsg}
+            {localError && (
+              <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm font-medium border border-red-200 flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <span>{localError}</span>
               </div>
             )}
             
@@ -55,8 +58,9 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
                 placeholder="admin@gov.np"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all bg-slate-50 focus:bg-white placeholder-slate-500"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all bg-slate-50 focus:bg-white placeholder-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -67,7 +71,8 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all bg-slate-50 focus:bg-white placeholder-slate-500"
+                disabled={loading}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all bg-slate-50 focus:bg-white placeholder-slate-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 placeholder="••••••••"
               />
             </div>
@@ -75,7 +80,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all focus:ring-4 focus:ring-blue-500/30 flex justify-center items-center"
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all focus:ring-4 focus:ring-blue-500/30 flex justify-center items-center disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
@@ -87,6 +92,12 @@ const Login = () => {
               )}
             </button>
           </form>
+
+          <div className="mt-6 pt-6 border-t border-slate-200 text-center">
+            <p className="text-xs text-slate-500">
+              Need help? Contact your administrator.
+            </p>
+          </div>
         </div>
       </div>
     </div>

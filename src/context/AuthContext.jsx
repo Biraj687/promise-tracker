@@ -6,91 +6,176 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check for existing session
     checkSession();
 
-    // Listen for auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          username: session.user.email?.split('@')[0] || 'User'
-        });
+        // Fetch and validate admin role
+        await fetchAndValidateAdminProfile(session.user);
       } else {
         setUser(null);
+        setError(null);
       }
       setLoading(false);
     });
 
-    return () => {
-      authListener?.subscription?.unsubscribe();
-    };
+    return () => subscription?.unsubscribe();
   }, []);
+
+  // Fetch profile and STRICTLY validate admin role
+  const fetchAndValidateAdminProfile = async (authUser) => {
+    try {
+      setError(null);
+      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email, role')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profileError) {
+        throw new Error(`Profile fetch failed: ${profileError.message}`);
+      }
+
+      // ✅ STRICT: ONLY admin role allowed
+      if (!profile) {
+        throw new Error('No profile found. Access denied.');
+      }
+
+      if (profile.role !== 'admin') {
+        // ✅ BLOCK: Non-admin users cannot access system
+        throw new Error(`Access denied. You do not have admin privileges. Role: ${profile.role}`);
+      }
+
+      // ✅ Admin user - set user state
+      const adminUser = {
+        id: authUser.id,
+        email: authUser.email,
+        username: authUser.email?.split('@')[0] || 'Admin',
+        role: 'admin'
+      };
+      setUser(adminUser);
+      setError(null);
+      return { success: true, user: adminUser };
+    } catch (err) {
+      console.error('Admin validation failed:', err);
+      // On error, DO NOT set user - keep blocked
+      setUser(null);
+      setError(err.message || 'Authentication failed');
+      
+      // Force logout if profile validation fails
+      await supabase.auth.signOut();
+      return { success: false, error: err.message };
+    }
+  };
 
   const checkSession = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          username: session.user.email?.split('@')[0] || 'User'
-        });
+      setLoading(true);
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error(`Session check failed: ${sessionError.message}`);
       }
-      setLoading(false);
-    } catch (error) {
-      console.error('Session check failed:', error);
+
+      if (session?.user) {
+        await fetchAndValidateAdminProfile(session.user);
+      } else {
+        setUser(null);
+      }
+      setError(null);
+    } catch (err) {
+      console.error('Session check error:', err);
+      setError(err.message);
+      setUser(null);
+    } finally {
       setLoading(false);
     }
   };
 
   const login = async (email, password) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      setLoading(true);
+      setError(null);
+
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
-      
-      if (error) {
-        return { 
-          success: false, 
-          error: error.message || 'Login failed' 
-        };
+
+      if (signInError) {
+        const errorMsg = signInError.message || 'Login failed';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
       }
 
       if (data?.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email,
-          username: data.user.email?.split('@')[0] || 'User'
-        });
+        // Validate admin role and get result
+        const result = await fetchAndValidateAdminProfile(data.user);
+        return result;
       }
-      return { success: true };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error.message || 'Login failed' 
-      };
+      
+      setError('Login failed: No user data returned');
+      return { success: false, error: 'Login failed' };
+    } catch (err) {
+      const errorMsg = err.message || 'Login failed';
+      setError(errorMsg);
+      setUser(null);
+      return { success: false, error: errorMsg };
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      setLoading(true);
+      const { error: signOutError } = await supabase.auth.signOut();
+
+      if (signOutError) {
+        throw new Error(`Logout failed: ${signOutError.message}`);
+      }
+
       setUser(null);
-    } catch (error) {
-      console.error('Logout failed:', error);
+      setError(null);
+    } catch (err) {
+      console.error('Logout error:', err);
+      setError(err.message);
+      // Still clear user on logout error (security first)
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ✅ STRICT: Only grant access if user is confirmed admin
+  const isAdmin = user?.role === 'admin';
+
+  const value = {
+    user,
+    loading,
+    error,
+    login,
+    logout,
+    isAdmin,
+    // Additional defensive check
+    isAuthenticated: user !== null && isAdmin
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+};

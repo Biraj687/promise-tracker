@@ -3,186 +3,271 @@ import { supabase } from '../supabaseClient';
 
 const DataContext = createContext();
 
-// Default categories (seed data)
-const DEFAULT_CATEGORIES = [
-  { id: 1, name: "साझा प्रतिबद्धता, समन्वय र जनविश्वास", icon: "Gavel", color: "bg-blue-100 text-[#2552f5]", createdAt: new Date().toISOString() },
-  { id: 2, name: "प्रशासनिक सुधार, पुनसंरचना र मितव्ययिता", icon: "Globe", color: "bg-indigo-100 text-indigo-800", createdAt: new Date().toISOString() },
-  { id: 3, name: "सार्वजनिक सेवा प्रवाह र गुनासो व्यवस्थापन", icon: "TrendingUp", color: "bg-green-100 text-green-800", createdAt: new Date().toISOString() },
-  { id: 4, name: "डिजिटल शासन र डेटा गोभर्नेन्स र सञ्चार", icon: "Wheat", color: "bg-amber-100 text-amber-800", createdAt: new Date().toISOString() },
-  { id: 5, name: "सुशासन, पारदर्शिता र भ्रष्टाचार नियंत्रण", icon: "Briefcase", color: "bg-orange-100 text-orange-800", createdAt: new Date().toISOString() },
-  { id: 6, name: "सार्वजनिक खरीद र परियोजना व्यवस्थापन सुधार", icon: "HardHat", color: "bg-slate-100 text-slate-800", createdAt: new Date().toISOString() },
-  { id: 7, name: "लगानी, उद्योग निजी क्षेत्र प्रवर्द्धन र पर्यटन", icon: "Zap", color: "bg-yellow-100 text-yellow-800", createdAt: new Date().toISOString() },
-  { id: 8, name: "उर्जा तथा जलस्रोत", icon: "GraduationCap", color: "bg-cyan-100 text-cyan-800", createdAt: new Date().toISOString() },
-  { id: 9, name: "राजस्व सुधार", icon: "Stethoscope", color: "bg-red-100 text-red-800", createdAt: new Date().toISOString() },
-  { id: 10, name: "स्वास्थ्य, शिक्षा र मानव विकास", icon: "Mountain", color: "bg-emerald-100 text-emerald-800", createdAt: new Date().toISOString() },
-  { id: 11, name: "कृषि, भूमि पूर्वाधार र आधारभूत सेवा", icon: "Activity", color: "bg-pink-100 text-pink-800", createdAt: new Date().toISOString() },
-  { id: 12, name: "अन्य रणनीतिक र सामाजिक सुरक्षा निर्णयहरू", icon: "Users", color: "bg-purple-100 text-purple-800", createdAt: new Date().toISOString() }
-];
+// Pagination & config
+const PROMISES_PAGE_SIZE = 100;
+const CATEGORIES_PAGE_SIZE = 50;
+const IMAGES_BUCKET = 'images';
 
 export const DataProvider = ({ children }) => {
   const [categories, setCategories] = useState([]);
   const [promises, setPromises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [operationLoading, setOperationLoading] = useState(false);
 
-  // Initialize categories from localStorage on mount
+  // Initialize data on mount
   useEffect(() => {
-    initializeCategories();
-    fetchPromises();
+    const initializeData = async () => {
+      try {
+        setLoading(true);
+        await fetchCategories();
+        await fetchPromises();
+        setError(null);
+      } catch (err) {
+        console.error("Initialization error:", err);
+        setError(err.message || 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeData();
   }, []);
 
-  // Initialize categories from localStorage or use defaults
-  const initializeCategories = () => {
+  // ============================================================================
+  // CATEGORY OPERATIONS - FETCH FROM SUPABASE
+  // ============================================================================
+
+  const fetchCategories = async () => {
     try {
-      const storedCategories = localStorage.getItem('categories');
-      if (storedCategories) {
-        setCategories(JSON.parse(storedCategories));
-      } else {
-        setCategories(DEFAULT_CATEGORIES);
-        localStorage.setItem('categories', JSON.stringify(DEFAULT_CATEGORIES));
+      const { data, error: fetchError } = await supabase
+        .from('categories')
+        .select('id, name, icon, color, created_at, created_by')
+        .order('created_at', { ascending: true })
+        .limit(CATEGORIES_PAGE_SIZE);
+
+      if (fetchError) throw new Error(`Failed to fetch categories: ${fetchError.message}`);
+
+      setCategories(data || []);
+      setError(null);
+    } catch (err) {
+      console.error("Category fetch failed:", err);
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const addCategory = async (categoryData) => {
+    try {
+      const { data, error: insertError } = await supabase
+        .from('categories')
+        .insert([
+          {
+            name: categoryData.name,
+            icon: categoryData.icon || 'Layers',
+            color: categoryData.color || 'bg-primary/10 text-primary'
+          }
+        ])
+        .select();
+
+      if (insertError) throw new Error(`Failed to add category: ${insertError.message}`);
+
+      if (data && data.length > 0) {
+        setCategories(prev => [...prev, data[0]]);
+        return data[0];
       }
+      throw new Error('No data returned from insert');
     } catch (err) {
-      console.error("Failed to initialize categories:", err);
-      setCategories(DEFAULT_CATEGORIES);
-      localStorage.setItem('categories', JSON.stringify(DEFAULT_CATEGORIES));
-    }
-  };
-
-  // Save categories to localStorage
-  const saveCategoriesToStorage = (updatedCategories) => {
-    try {
-      localStorage.setItem('categories', JSON.stringify(updatedCategories));
-    } catch (err) {
-      console.error("Failed to save categories to localStorage:", err);
-    }
-  };
-
-  // ============ CATEGORY OPERATIONS ============
-  
-  const addCategory = (categoryData) => {
-    try {
-      const newCategory = {
-        id: Math.max(...categories.map(c => c.id), 0) + 1,
-        name: categoryData.name,
-        icon: categoryData.icon || 'Layers',
-        color: categoryData.color || 'bg-primary/10 text-primary',
-        createdAt: new Date().toISOString()
-      };
-      const updatedCategories = [...categories, newCategory];
-      setCategories(updatedCategories);
-      saveCategoriesToStorage(updatedCategories);
-      return newCategory;
-    } catch (err) {
-      console.error("Failed to add category:", err);
+      console.error("Add category failed:", err);
       throw err;
     }
   };
 
-  const updateCategory = (id, updatedData) => {
+  const updateCategory = async (id, updatedData) => {
     try {
-      const updatedCategories = categories.map(c => 
-        c.id === id ? { ...c, ...updatedData } : c
+      const { error: updateError } = await supabase
+        .from('categories')
+        .update(updatedData)
+        .eq('id', id);
+
+      if (updateError) throw new Error(`Failed to update category: ${updateError.message}`);
+
+      setCategories(prev =>
+        prev.map(c => c.id === id ? { ...c, ...updatedData } : c)
       );
-      setCategories(updatedCategories);
-      saveCategoriesToStorage(updatedCategories);
     } catch (err) {
-      console.error("Failed to update category:", err);
+      console.error("Update category failed:", err);
       throw err;
     }
   };
 
-  const deleteCategory = (id) => {
+  const deleteCategory = async (id) => {
     try {
       // Check if any promises use this category
       const promisesInCategory = promises.filter(p => p.categoryId === id);
       if (promisesInCategory.length > 0) {
         throw new Error(`Cannot delete category. ${promisesInCategory.length} promise(s) are still using this category.`);
       }
-      
-      const updatedCategories = categories.filter(c => c.id !== id);
-      setCategories(updatedCategories);
-      saveCategoriesToStorage(updatedCategories);
+
+      const { error: deleteError } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw new Error(`Failed to delete category: ${deleteError.message}`);
+
+      setCategories(prev => prev.filter(c => c.id !== id));
     } catch (err) {
-      console.error("Failed to delete category:", err);
+      console.error("Delete category failed:", err);
       throw err;
     }
   };
 
-  // ============ PROMISE OPERATIONS ============
+  // ============================================================================
+  // IMAGE UPLOAD & MANAGEMENT
+  // ============================================================================
 
-  const fetchPromises = async () => {
+  const uploadImage = async (file) => {
+    try {
+      if (!file) throw new Error('No file provided');
+      
+      setOperationLoading(true);
+      
+      // Create unique filename
+      const timestamp = Date.now();
+      const fileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+      
+      // Upload to Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from(IMAGES_BUCKET)
+        .upload(`public/${fileName}`, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from(IMAGES_BUCKET)
+        .getPublicUrl(`public/${fileName}`);
+
+      setOperationLoading(false);
+      return publicUrl;
+    } catch (err) {
+      console.error("Upload image failed:", err);
+      setOperationLoading(false);
+      throw err;
+    }
+  };
+
+  const deleteImage = async (fileName) => {
+    try {
+      setOperationLoading(true);
+      
+      const { error: deleteError } = await supabase.storage
+        .from(IMAGES_BUCKET)
+        .remove([`public/${fileName}`]);
+
+      if (deleteError) throw new Error(`Image delete failed: ${deleteError.message}`);
+      
+      setOperationLoading(false);
+      return true;
+    } catch (err) {
+      console.error("Delete image failed:", err);
+      setOperationLoading(false);
+      throw err;
+    }
+  };
+
+  // ============================================================================
+  // PROMISE OPERATIONS - FETCH WITH PAGINATION
+  // ============================================================================
+
+  const fetchPromises = async (pageStart = 0) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('promises')
-        .select('*')
-        .order('point_no', { ascending: true });
-      
-      if (error) throw error;
-      
+        .select('*', { count: 'exact' })
+        .order('point_no', { ascending: true })
+        .range(pageStart, pageStart + PROMISES_PAGE_SIZE - 1);
+
+      if (fetchError) throw new Error(`Failed to fetch promises: ${fetchError.message}`);
+
       setPromises(data || []);
       setError(null);
+      return data;
     } catch (err) {
-      console.error("Failed to fetch promises:", err);
-      setError("Failed to load data.");
+      console.error("Promise fetch failed:", err);
+      setError(err.message);
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  // Promise operations (connected to Supabase)
   const addPromise = async (promiseData) => {
     try {
-      const { data, error } = await supabase
+      const { data, error: insertError } = await supabase
         .from('promises')
         .insert([promiseData])
         .select();
-      
-      if (error) throw error;
-      
+
+      if (insertError) throw new Error(`Failed to add promise: ${insertError.message}`);
+
       if (data && data.length > 0) {
         setPromises(prev => [...prev, data[0]]);
         return data[0];
       }
+      throw new Error('No data returned from insert');
     } catch (err) {
-      console.error("Failed to add:", err);
+      console.error("Add promise failed:", err);
       throw err;
     }
   };
 
   const updatePromise = async (id, updatedData) => {
     try {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('promises')
         .update(updatedData)
         .eq('id', id);
-      
-      if (error) throw error;
-      
-      setPromises(prev => 
-        prev.map(p => p.id === id ? { ...p, ...updatedData, updatedAt: new Date().toISOString().split('T')[0] } : p)
+
+      if (updateError) throw new Error(`Failed to update promise: ${updateError.message}`);
+
+      setPromises(prev =>
+        prev.map(p =>
+          p.id === id
+            ? { ...p, ...updatedData, updatedAt: new Date().toISOString().split('T')[0] }
+            : p
+        )
       );
     } catch (err) {
-      console.error("Failed to update:", err);
+      console.error("Update promise failed:", err);
       throw err;
     }
   };
 
   const deletePromise = async (id) => {
     try {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('promises')
         .delete()
         .eq('id', id);
-      
-      if (error) throw error;
-      
+
+      if (deleteError) throw new Error(`Failed to delete promise: ${deleteError.message}`);
+
       setPromises(prev => prev.filter(p => p.id !== id));
     } catch (err) {
-      console.error("Failed to delete:", err);
+      console.error("Delete promise failed:", err);
       throw err;
     }
   };
+
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
 
   const getPromisesByCategory = (categoryId) => {
     return promises.filter(p => p.categoryId === Number(categoryId));
@@ -193,34 +278,42 @@ export const DataProvider = ({ children }) => {
     const completed = promises.filter(p => p.status === 'Completed').length;
     const inProgress = promises.filter(p => p.status === 'In Progress').length;
     const pending = promises.filter(p => p.status === 'Pending').length;
-    
-    return { 
-      total, 
-      completed, 
-      inProgress, 
-      pending, 
-      percentage: total > 0 ? Math.round((completed / total) * 100) : 0 
+
+    return {
+      total,
+      completed,
+      inProgress,
+      pending,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0
     };
   };
 
+  const value = {
+    categories,
+    promises,
+    loading,
+    operationLoading,
+    error,
+    // Category operations
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    fetchCategories,
+    // Image operations
+    uploadImage,
+    deleteImage,
+    // Promise operations
+    addPromise,
+    updatePromise,
+    deletePromise,
+    fetchPromises,
+    getPromisesByCategory,
+    getStats,
+    refreshData: fetchPromises
+  };
+
   return (
-    <DataContext.Provider value={{
-      categories,
-      promises,
-      loading,
-      error,
-      // Category operations
-      addCategory,
-      updateCategory,
-      deleteCategory,
-      // Promise operations
-      addPromise,
-      updatePromise,
-      deletePromise,
-      getPromisesByCategory,
-      getStats,
-      refreshData: fetchPromises
-    }}>
+    <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
   );

@@ -1,15 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Users, LogOut, FolderOpen, FileText } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Users, LogOut, FolderOpen, FileText, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const AdminLayout = () => {
-  const { logout, user } = useAuth();
+  const { logout, user, error: authError } = useAuth();
   const navigate = useNavigate();
+  const [logoutError, setLogoutError] = useState(null);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      setLogoutError(null);
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setLogoutError('Logout failed. Please try again.');
+      console.error('Logout error:', err);
+    }
   };
 
   const navItems = [
@@ -64,18 +71,30 @@ const AdminLayout = () => {
           </h1>
           
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-slate-600 font-medium bg-slate-100 px-3 py-1 rounded-full">
-              {user?.username}
-            </span>
+            <div className="text-right hidden sm:block">
+              <p className="text-sm text-slate-600 font-medium">{user?.username}</p>
+              <p className="text-xs text-slate-400">Role: <span className="font-semibold text-slate-600">{user?.role}</span></p>
+            </div>
             <button
               onClick={handleLogout}
               className="flex items-center text-sm font-medium text-red-600 hover:text-red-700 transition"
+              title="Sign out"
             >
               <LogOut className="w-4 h-4 mr-1" />
               Logout
             </button>
           </div>
         </header>
+
+        {/* Error Messages */}
+        {(authError || logoutError) && (
+          <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-800">{authError || logoutError}</p>
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Pages */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
