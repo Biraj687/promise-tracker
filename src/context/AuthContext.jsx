@@ -36,31 +36,48 @@ export const AuthProvider = ({ children }) => {
   const fetchAndValidateAdminProfile = async (authUser) => {
     try {
       setError(null);
+      console.log('🔐 Starting admin validation for user:', authUser.id);
       
-      // ⏱️ Add timeout to prevent hanging
-      const profilePromise = supabase
-        .from('profiles')
-        .select('id, email, role')
-        .eq('id', authUser.id)
-        .single();
+      // ⏱️ Create timeout wrapper
+      const queryWithTimeout = async () => {
+        return new Promise(async (resolve, reject) => {
+          const timeout = setTimeout(() => {
+            console.error('❌ Profile query timeout after 6 seconds');
+            reject(new Error('Profile query timeout - Supabase took too long to respond'));
+          }, 6000);
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile query timeout - took too long')), 8000)
-      );
+          try {
+            console.log('📡 Fetching profile from Supabase...');
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('id, email, role')
+              .eq('id', authUser.id)
+              .single();
 
-      const { data: profile, error: profileError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]);
+            clearTimeout(timeout);
 
-      if (profileError) {
-        throw new Error(`Profile fetch failed: ${profileError.message}`);
-      }
+            if (profileError) {
+              console.error('❌ Profile query error:', profileError);
+              throw new Error(`Profile fetch failed: ${profileError.message}`);
+            }
+
+            console.log('✅ Profile fetched:', profile);
+            resolve(profile);
+          } catch (err) {
+            clearTimeout(timeout);
+            reject(err);
+          }
+        });
+      };
+
+      const profile = await queryWithTimeout();
 
       // ✅ STRICT: ONLY admin role allowed
       if (!profile) {
         throw new Error('No profile found. Access denied.');
       }
+
+      console.log('📋 User role:', profile.role);
 
       if (profile.role !== 'admin') {
         // ✅ BLOCK: Non-admin users cannot access system
@@ -74,11 +91,12 @@ export const AuthProvider = ({ children }) => {
         username: authUser.email?.split('@')[0] || 'Admin',
         role: 'admin'
       };
+      console.log('✅ Admin user validated:', adminUser.email);
       setUser(adminUser);
       setError(null);
       return { success: true, user: adminUser };
     } catch (err) {
-      console.error('Admin validation failed:', err);
+      console.error('❌ Admin validation failed:', err);
       // On error, DO NOT set user - keep blocked
       setUser(null);
       setError(err.message || 'Authentication failed');
@@ -92,6 +110,7 @@ export const AuthProvider = ({ children }) => {
   const checkSession = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Checking session...');
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
@@ -99,8 +118,10 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (session?.user) {
+        console.log('👤 Session found, validating admin role...');
         await fetchAndValidateAdminProfile(session.user);
       } else {
+        console.log('❌ No session found');
         setUser(null);
       }
       setError(null);
@@ -117,6 +138,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
+      console.log('🔑 Attempting login for:', email);
 
       if (!email || !password) {
         setError('Email and password are required');
@@ -124,12 +146,14 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: 'Email and password are required' };
       }
 
+      console.log('📝 Calling Supabase signInWithPassword...');
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (signInError) {
+        console.error('❌ Sign in error:', signInError);
         const errorMsg = signInError.message || 'Login failed';
         setError(errorMsg);
         setLoading(false);
@@ -137,11 +161,13 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (!data?.user) {
+        console.error('❌ No user returned from signInWithPassword');
         setError('Login failed: No user data returned');
         setLoading(false);
         return { success: false, error: 'Login failed' };
       }
 
+      console.log('✅ Sign in successful, validating admin role...');
       // Validate admin role and get result
       const result = await fetchAndValidateAdminProfile(data.user);
       
@@ -150,11 +176,11 @@ export const AuthProvider = ({ children }) => {
       
       return result;
     } catch (err) {
+      console.error('❌ Login error:', err);
       const errorMsg = err.message || 'Login failed';
       setError(errorMsg);
       setUser(null);
       setLoading(false);
-      console.error('Login error:', err);
       return { success: false, error: errorMsg };
     }
   };
