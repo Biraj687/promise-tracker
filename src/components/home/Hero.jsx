@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Info } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
+import { useState } from 'react';
 
 const Hero = () => {
   const { config } = useConfig();
@@ -41,11 +42,17 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
-              <button className="premium-gradient text-white px-8 py-4 rounded-2xl font-headline font-bold text-lg hover:shadow-premium hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 group">
+              <button 
+                onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
+                className="premium-gradient text-white px-8 py-4 rounded-2xl font-headline font-bold text-lg hover:shadow-premium hover:-translate-y-1 transition-all duration-300 flex items-center gap-2 group"
+              >
                 {hero.startButton || 'सुरु गरौं'}
                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </button>
-              <button className="bg-white text-primary border border-outline-variant px-8 py-4 rounded-2xl font-headline font-bold text-lg hover:bg-surface-container transition-all flex items-center gap-2 shadow-sm">
+              <button 
+                onClick={() => document.getElementById('category-grid')?.scrollIntoView({ behavior: 'smooth' })}
+                className="bg-white text-primary border border-outline-variant px-8 py-4 rounded-2xl font-headline font-bold text-lg hover:bg-surface-container transition-all flex items-center gap-2 shadow-sm"
+              >
                 <Play size={18} fill="currentColor" />
                 {hero.howItWorksButton || 'कार्यप्रणाली'}
               </button>

@@ -22,7 +22,6 @@ const AdminLayout = () => {
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { name: 'Content Manager', icon: FileText, path: '/admin/content' },
-    { name: 'Manage Categories', icon: FolderOpen, path: '/admin/categories' },
     { name: 'Manage Promises', icon: CheckSquare, path: '/admin/promises' },
     { name: 'Manage Users', icon: Users, path: '/admin/users' },
   ];

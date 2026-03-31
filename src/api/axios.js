@@ -1,19 +1,14 @@
-import axios from 'axios';
+// ============================================================================
+// SECURE API CLIENT WITH RATE LIMITING
+// ============================================================================
+// This is now using the secureAPI from secureAPI.js
+// which includes rate limiting, sanitization, and API versioning
 
-const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Make sure this matches backend port
-});
+import { secureAPI } from './secureAPI';
 
-// Add a request interceptor to inject the JWT token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Export the secure API instances
+export const apiV1 = secureAPI.v1;
+export const apiV2 = secureAPI.v2;
 
-export default api;
+// Default export uses V1 for backwards compatibility
+export default secureAPI.v1;

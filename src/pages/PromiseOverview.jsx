@@ -1,52 +1,54 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { ArrowRight, User, MapPin, CheckCircle2, Clock, Globe, ShieldCheck } from 'lucide-react';
+import { ArrowRight, User, MapPin, CheckCircle2, Clock, Globe, ShieldCheck, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useData } from '../context/DataContext';
 
 const PromiseOverview = () => {
-  const promises = [
-    {
-      id: 1,
-      name: 'बालेन साह',
-      title: '१००-विन्दु नागरिक प्रतिबद्धता',
-      platform: 'काठमाडौं महानगरपालिका',
-      description: 'काठमाडौंको विकास र सुशासनका लागि घोषणा गरिएका १०० प्रमुख प्रतिवद्धताहरू।',
-      totalPromises: 100,
-      completed: 35,
-      inProgress: 42,
-      pending: 23,
-      image: 'https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop',
-      color: 'bg-primary',
-      link: '/balen-tracker'
-    },
-    {
-      id: 2,
-      name: 'गण्डकी प्रदेश सरकार',
-      title: '२० सुधार योजना',
-      platform: 'मुख्यमन्त्री कार्यालय, गण्डकी',
-      description: 'गण्डकी प्रदेशको विकास र जनकल्याणका लागि २० मुख्य योजनाहरूको कार्यान्वयन अवस्था।',
-      totalPromises: 20,
-      completed: 8,
-      inProgress: 7,
-      pending: 5,
-      image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop',
-      color: 'bg-accent-emerald',
-      link: '/tracker?leader=sharma'
-    },
-    {
-      id: 3,
-      name: 'स्वास्थ्य मन्त्रालय',
-      title: 'स्वास्थ्य क्षेत्र सुधार: ५० प्रमुख कदम',
-      platform: 'संघीय सरकार',
-      description: 'स्वास्थ्य सेवा र जनस्वास्थ्य सुधारका लागि मन्त्रालयले लिएका ५० प्रमुख पहलहरू।',
-      totalPromises: 50,
-      completed: 12,
-      inProgress: 28,
-      pending: 10,
-      image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop',
-      color: 'bg-accent-rose',
-      link: '/tracker?leader=ghimire'
+  const { categories, promises, loading } = useData();
+  const [displayTrackers, setDisplayTrackers] = useState([]);
+
+  // Get stats for a category
+  const getCategoryStats = (categoryId) => {
+    const catPromises = promises.filter(p => p.category_id === categoryId || p.categoryId === categoryId);
+    return {
+      total: catPromises.length,
+      completed: catPromises.filter(p => p.status === 'Completed').length,
+      inProgress: catPromises.filter(p => p.status === 'In Progress').length,
+      pending: catPromises.filter(p => p.status === 'Pending' || p.status === 'Planning').length,
+    };
+  };
+
+  // Transform categories to display format
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      const trackers = categories.slice(0, 3).map((cat, idx) => {
+        const stats = getCategoryStats(cat.id);
+        const images = [
+          'https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop'
+        ];
+        const colors = ['bg-primary', 'bg-accent-emerald', 'bg-accent-rose'];
+        
+        return {
+          id: cat.id,
+          name: cat.name,
+          title: cat.description || cat.name,
+          platform: cat.platform || 'नेपाल ट्रयाकर',
+          description: cat.description || 'विकास र सुशासनका लागि गरिएका प्रतिवद्धताहरू।',
+          totalPromises: stats.total,
+          completed: stats.completed,
+          inProgress: stats.inProgress,
+          pending: stats.pending,
+          image: cat.image_url || images[idx],
+          color: colors[idx],
+          link: `/balen-tracker?category=${cat.id}`
+        };
+      });
+      setDisplayTrackers(trackers);
     }
-  ];
+  }, [categories, promises]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -57,6 +59,14 @@ const PromiseOverview = () => {
     hidden: { y: 30, opacity: 0 },
     visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin" size={48} />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white min-h-screen pt-24">
@@ -117,7 +127,7 @@ const PromiseOverview = () => {
             viewport={{ once: true }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {promises.map((portal) => (
+            {displayTrackers.map((portal) => (
               <motion.div
                 key={portal.id}
                 variants={itemVariants}
@@ -191,12 +201,12 @@ const PromiseOverview = () => {
                 तपाईंको क्षेत्रको प्रतिवद्धता ट्रयाक गर्न चाहनुहुन्छ वा डेटा प्रमाणित गर्न मद्दत गर्न चाहनुहुन्छ? आजै हाम्रो स्वयंसेवी टोलीमा सहभागी हुनुहोस्।
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button className="bg-white text-primary px-10 py-5 rounded-2xl font-black hover:bg-secondary hover:text-white transition-all shadow-xl">
+                <a href="#contact" className="bg-white text-primary px-10 py-5 rounded-2xl font-black hover:bg-secondary hover:text-white transition-all shadow-xl cursor-pointer">
                   अनुरोध पठाउनुहोस्
-                </button>
-                <button className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-10 py-5 rounded-2xl font-black hover:bg-white/20 transition-all">
+                </a>
+                <a href="#verify" className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-10 py-5 rounded-2xl font-black hover:bg-white/20 transition-all cursor-pointer">
                   डेटा प्रमाणित गर्नुहोस्
-                </button>
+                </a>
               </div>
             </div>
           </div>

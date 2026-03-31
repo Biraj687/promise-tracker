@@ -131,7 +131,73 @@ CREATE POLICY "Only admins can delete promises"
   );
 
 -- ============================================================================
--- 4. INSERT DEFAULT CATEGORIES
+-- 4. CREATE NEWS UPDATES TABLE (Recent progress updates)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS news_updates (
+  id BIGSERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT,
+  source_url TEXT,
+  category_id BIGINT REFERENCES categories(id) ON DELETE SET NULL,
+  promise_id BIGINT REFERENCES promises(id) ON DELETE SET NULL,
+  published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on news_updates table
+ALTER TABLE news_updates ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Everyone can read news
+CREATE POLICY "Public news are viewable"
+  ON news_updates FOR SELECT
+  USING (true);
+
+-- Policy: Only admins can manage news
+CREATE POLICY "Only admins can manage news"
+  ON news_updates FOR ALL
+  USING (
+    auth.uid() IN (
+      SELECT id FROM profiles WHERE role = 'admin'
+    )
+  );
+
+-- ============================================================================
+-- 5. CREATE VOLUNTEER REQUESTS TABLE (Join Campaign)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS volunteer_requests (
+  id BIGSERIAL PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT,
+  message TEXT,
+  type TEXT CHECK (type IN ('volunteer', 'verify_data')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'contacted')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on volunteer_requests table
+ALTER TABLE volunteer_requests ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Anyone can insert (send request)
+CREATE POLICY "Anyone can send volunteer requests"
+  ON volunteer_requests FOR INSERT
+  WITH CHECK (true);
+
+-- Policy: Only admins can view/manage requests
+CREATE POLICY "Only admins can manage volunteer requests"
+  ON volunteer_requests FOR ALL
+  USING (
+    auth.uid() IN (
+      SELECT id FROM profiles WHERE role = 'admin'
+    )
+  );
+
+-- ============================================================================
+-- 6. INSERT DEFAULT CATEGORIES
 -- ============================================================================
 
 INSERT INTO categories (name, icon, color) VALUES
@@ -166,6 +232,18 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================================
+-- 8. STORAGE BUCKETS SETUP
+-- ============================================================================
+-- Note: Storage buckets usually need to be created via the Dashboard
+-- But policies can be set via SQL
+
+-- Policy for 'images' bucket (must exist first)
+-- CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id = 'images');
+-- CREATE POLICY "Admin Upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'images' AND auth.role() = 'authenticated');
+-- CREATE POLICY "Admin Update" ON storage.objects FOR UPDATE USING (bucket_id = 'images' AND auth.role() = 'authenticated');
+-- CREATE POLICY "Admin Delete" ON storage.objects FOR DELETE USING (bucket_id = 'images' AND auth.role() = 'authenticated');
 
 -- ============================================================================
 -- 6. VERIFY RLS IS ENABLED ON ALL TABLES

@@ -1,242 +1,323 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Edit2, Trash2, ChevronDown, X, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, Save } from 'lucide-react';
 import { useData } from '../../context/DataContext';
-import { Search, Loader2, Plus, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import PromiseFormModal from '../../components/admin/PromiseFormModal';
 
 const ManagePromises = () => {
-  const { promises, categories, loading, updatePromise, deletePromise } = useData();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [updating, setUpdating] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPromise, setEditingPromise] = useState(null);
-  const [deleting, setDeleting] = useState(null);
-  const [deleteError, setDeleteError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const { categories, promises, updateCategory, uploadImage, operationLoading } = useData();
+  const [message, setMessage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  
+  // ONLY show first 3 categories as main trackers
+  const mainTrackers = categories.slice(0, 3);
+  
+  // Modals
+  const [manageModal, setManageModal] = useState(false);
+  const [selectedTracker, setSelectedTracker] = useState(null);
+  
+  // Edit hero form
+  const [editHeroData, setEditHeroData] = useState({ name: '', description: '', image_url: '' });
+  const [heroImagePreview, setHeroImagePreview] = useState(null);
+  const [trackerPromises, setTrackerPromises] = useState([]);
+  const [editingSaving, setEditingSaving] = useState(false);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
+  // ============================================================================
+  // IMAGE UPLOAD HANDLER
+  // ============================================================================
 
-  const filteredPromises = promises.filter(p => 
-    (p.title?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
-    (p.description?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-  );
+  const handleHeroImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const handleStatusChange = async (id, newStatus) => {
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Please select a valid image file' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Image must be less than 5MB' });
+      return;
+    }
+
     try {
-      setUpdating({ id, field: 'status' });
-      await updatePromise(id, { status: newStatus });
+      setUploading(true);
+      const url = await uploadImage(file);
+      setHeroImagePreview(url);
+      setEditHeroData(prev => ({ ...prev, image_url: url }));
+      setMessage({ type: 'success', text: 'Image uploaded to Supabase!' });
     } catch (err) {
-      alert("Failed to update status");
+      setMessage({ type: 'error', text: `Upload failed: ${err.message}` });
     } finally {
-      setUpdating(null);
+      setUploading(false);
     }
   };
 
-  const handleProgressChange = async (id, newProgress) => {
-    try {
-      setUpdating({ id, field: 'progress' });
-      await updatePromise(id, { progress: Number(newProgress) });
-    } catch (err) {
-      alert("Failed to update progress");
-    } finally {
-      setUpdating(null);
-    }
-  };
+  // ============================================================================
+  // TRACKER MANAGEMENT
+  // ============================================================================
 
-  const handleAddPromise = () => {
-    setEditingPromise(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEditPromise = (promise) => {
-    setEditingPromise(promise);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingPromise(null);
-    setSuccess(null);
-  };
-
-  const handleDeletePromise = async (promiseId) => {
-    if (!window.confirm('Are you sure you want to delete this promise?')) return;
+  const handleOpenManageModal = (tracker) => {
+    setSelectedTracker(tracker);
+    setEditHeroData({
+      name: tracker.name,
+      description: tracker.description || '',
+      image_url: tracker.image_url || ''
+    });
+    setHeroImagePreview(tracker.image_url || null);
     
+    // Get promises for this tracker (by categoryId)
+    const trackerPms = promises.filter(p => p.categoryId === tracker.id);
+    setTrackerPromises(trackerPms);
+    
+    setManageModal(true);
+  };
+
+  const handleSaveHeroSection = async () => {
+    if (!selectedTracker || !editHeroData.name.trim()) {
+      setMessage({ type: 'error', text: 'Tracker name is required' });
+      return;
+    }
+
     try {
-      setDeleting(promiseId);
-      setDeleteError(null);
-      await deletePromise(promiseId);
-      setSuccess('Promise deleted successfully!');
-      setTimeout(() => setSuccess(null), 3000);
+      setEditingSaving(true);
+      await updateCategory(selectedTracker.id, {
+        name: editHeroData.name,
+        description: editHeroData.description,
+        image_url: editHeroData.image_url
+      });
+      setMessage({ type: 'success', text: 'Hero section saved to Supabase!' });
+      setTimeout(() => setMessage(null), 2000);
     } catch (err) {
-      setDeleteError(err.message || 'Failed to delete promise');
+      setMessage({ type: 'error', text: `Failed to save: ${err.message}` });
     } finally {
-      setDeleting(null);
+      setEditingSaving(false);
     }
   };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center space-y-4 sm:space-y-0">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold font-heading text-slate-800">Manage Promises</h1>
-          <p className="text-slate-500 text-sm">Create, update, and manage government promises.</p>
-        </div>
-        
-        <div className="flex gap-4">
-          <div className="relative flex-1 sm:flex-none">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-slate-400" />
-            </div>
-            <input
-              type="text"
-              className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/50 w-full sm:w-64"
-              placeholder="Search promises..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <button
-            onClick={handleAddPromise}
-            className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium whitespace-nowrap"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Promise
-          </button>
+          <h1 className="text-3xl font-bold text-slate-800">💰 Manage Promises</h1>
+          <p className="text-slate-500 mt-2">Manage the 3 main trackers & their promises (Supabase)</p>
         </div>
       </div>
 
-      {/* Success Message */}
-      {success && (
-        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-lg">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm font-medium">{success}</p>
-        </div>
+      {/* Messages */}
+      {message && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`flex items-center gap-3 p-4 rounded-lg border ${
+            message.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}
+        >
+          {message.type === 'success' ? (
+            <CheckCircle2 size={20} />
+          ) : (
+            <AlertCircle size={20} />
+          )}
+          <span className="font-medium">{message.text}</span>
+        </motion.div>
       )}
 
-      {/* Error Message */}
-      {deleteError && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm font-medium">{deleteError}</p>
-        </div>
-      )}
+      {/* 3 Main Trackers Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {mainTrackers.map((tracker, idx) => {
+          const trackerPms = promises.filter(p => p.categoryId === tracker.id);
+          const completed = trackerPms.filter(p => p.status === 'Completed').length;
+          const inProgress = trackerPms.filter(p => p.status === 'In Progress').length;
+          const pending = trackerPms.filter(p => p.status === 'Pending').length;
 
-      {/* Promises Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="py-4 px-6 font-semibold text-sm text-slate-700">ID</th>
-                <th className="py-4 px-6 font-semibold text-sm text-slate-700">Title</th>
-                <th className="py-4 px-6 font-semibold text-sm text-slate-700">Category</th>
-                <th className="py-4 px-6 font-semibold text-sm text-slate-700 w-40">Status</th>
-                <th className="py-4 px-6 font-semibold text-sm text-slate-700 w-32">Progress</th>
-                <th className="py-4 px-6 font-semibold text-sm text-slate-700 text-right w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredPromises.map((promise) => {
-                const category = categories.find(c => c.id === promise.categoryId);
-                const isUpdatingStatus = updating?.id === promise.id && updating?.field === 'status';
-                const isUpdatingProgress = updating?.id === promise.id && updating?.field === 'progress';
-                const isDeleting = deleting === promise.id;
-
-                return (
-                  <tr key={promise.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4 px-6 text-sm text-slate-500">#{promise.id}</td>
-                    <td className="py-4 px-6">
-                      <p className="text-sm font-medium text-slate-800 line-clamp-1">{promise.title}</p>
-                      <p className="text-xs text-slate-500 line-clamp-1 mt-1">{promise.description}</p>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-slate-600 line-clamp-1 truncate max-w-[150px]">
-                      {category ? category.name : `Category ${promise.categoryId}`}
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="relative">
-                        <select
-                          value={promise.status}
-                          onChange={(e) => handleStatusChange(promise.id, e.target.value)}
-                          disabled={isUpdatingStatus}
-                          className={`text-sm rounded-lg px-3 py-1.5 border appearance-none pr-8 focus:ring-2 disabled:opacity-50 ${
-                            promise.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500/50' :
-                            promise.status === 'In Progress' ? 'bg-amber-50 text-amber-700 border-amber-200 focus:ring-amber-500/50' :
-                            'bg-slate-50 text-slate-700 border-slate-200 focus:ring-slate-500/50'
-                          }`}
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Completed">Completed</option>
-                        </select>
-                        {isUpdatingStatus && <Loader2 className="w-3 h-3 animate-spin absolute right-2 top-2.5 text-slate-500" />}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={promise.progress}
-                          onChange={(e) => handleProgressChange(promise.id, e.target.value)}
-                          disabled={isUpdatingProgress}
-                          className="w-16 px-2 py-1 text-sm border border-slate-200 rounded-md focus:ring-2 focus:ring-blue-500/50 disabled:bg-slate-100"
-                        />
-                        <span className="text-sm text-slate-500">%</span>
-                        {isUpdatingProgress && <Loader2 className="w-3 h-3 animate-spin text-blue-500" />}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEditPromise(promise)}
-                          className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600 hover:text-blue-600"
-                          title="Edit promise"
-                        >
-                          ✎
-                        </button>
-                        <button
-                          onClick={() => handleDeletePromise(promise.id)}
-                          disabled={isDeleting}
-                          className="p-2 hover:bg-red-50 rounded-lg transition-colors text-slate-600 hover:text-red-600 disabled:opacity-50"
-                          title="Delete promise"
-                        >
-                          {isDeleting ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredPromises.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="py-8 text-center text-slate-500">
-                    No promises found. {searchTerm ? 'Try a different search.' : ''}
-                  </td>
-                </tr>
+          return (
+            <motion.div
+              key={tracker.id}
+              layout
+              className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow group"
+            >
+              {/* Tracker Image Hero */}
+              {tracker.image_url ? (
+                <div className="h-48 overflow-hidden bg-slate-100">
+                  <img 
+                    src={tracker.image_url} 
+                    alt={tracker.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                  />
+                </div>
+              ) : (
+                <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+                  <ImageIcon size={48} className="text-slate-300" />
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
+
+              {/* Tracker Content */}
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-bold text-lg text-slate-800 flex-1">{tracker.name}</h3>
+                  <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">#{idx + 1}</span>
+                </div>
+                <p className="text-sm text-slate-600 mb-4 line-clamp-2">{tracker.description}</p>
+
+                {/* Promise Stats */}
+                <div className="grid grid-cols-3 gap-2 mb-6 text-center">
+                  <div className="bg-blue-50 rounded p-2">
+                    <p className="text-xs text-slate-600">Total</p>
+                    <p className="font-bold text-blue-600">{trackerPms.length}</p>
+                  </div>
+                  <div className="bg-green-50 rounded p-2">
+                    <p className="text-xs text-slate-600">Done</p>
+                    <p className="font-bold text-green-600">{completed}</p>
+                  </div>
+                  <div className="bg-amber-50 rounded p-2">
+                    <p className="text-xs text-slate-600">Progress</p>
+                    <p className="font-bold text-amber-600">{inProgress}</p>
+                  </div>
+                </div>
+
+                {/* Edit Button */}
+                <button
+                  onClick={() => handleOpenManageModal(tracker)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors font-bold"
+                >
+                  <Edit2 size={16} />
+                  Edit Tracker & Promises
+                </button>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
 
-      {/* Promise Form Modal */}
-      <PromiseFormModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        editingPromise={editingPromise}
-      />
+      {/* =================== EDIT TRACKER MODAL ================= */}
+      <AnimatePresence>
+        {manageModal && selectedTracker && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
+                <div>
+                  <h2 className="text-2xl font-bold">✏️ Edit Hero Section</h2>
+                  <p className="text-sm text-slate-500">{selectedTracker.name}</p>
+                </div>
+                <button onClick={() => setManageModal(false)} className="hover:bg-slate-100 p-1 rounded">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Hero Image Preview & Upload */}
+                <div>
+                  <label className="block text-sm font-bold mb-3">📸 Hero Image (Upload to Supabase)</label>
+                  {heroImagePreview ? (
+                    <div className="relative mb-4">
+                      <img src={heroImagePreview} alt="preview" className="w-full h-48 object-cover rounded-lg" />
+                      <button
+                        onClick={() => {
+                          setHeroImagePreview(null);
+                          setEditHeroData(prev => ({ ...prev, image_url: '' }));
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded hover:bg-red-600"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition">
+                      <div className="flex flex-col items-center">
+                        <ImageIcon size={32} className="text-slate-400 mb-2" />
+                        <span className="text-sm text-slate-600">Click to upload hero image</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleHeroImageUpload}
+                        disabled={uploading}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Title & Description */}
+                <div>
+                  <label className="block text-sm font-bold mb-2">📝 Tracker Title (Hero)</label>
+                  <input
+                    type="text"
+                    value={editHeroData.name}
+                    onChange={e => setEditHeroData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., बालेन साह को प्रतिबद्धता"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-800 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold mb-2">📄 Description</label>
+                  <textarea
+                    value={editHeroData.description}
+                    onChange={e => setEditHeroData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="What are the main promises/focus areas?"
+                    rows="4"
+                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-800 focus:border-transparent resize-none"
+                  />
+                </div>
+
+                {/* Current Data Summary */}
+                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                  <h3 className="font-bold text-sm mb-3">📊 Promises Under This Tracker</h3>
+                  {trackerPromises.length === 0 ? (
+                    <p className="text-sm text-slate-600">No promises yet for this tracker</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-600">
+                        ✓ <strong>{trackerPromises.filter(p => p.status === 'Completed').length}</strong> Completed
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        ⏳ <strong>{trackerPromises.filter(p => p.status === 'In Progress').length}</strong> In Progress
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        ⏸️ <strong>{trackerPromises.filter(p => p.status === 'Pending').length}</strong> Pending
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Save Button */}
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={() => setManageModal(false)}
+                    className="flex-1 px-4 py-3 border border-slate-300 rounded-lg hover:bg-slate-50 font-bold transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveHeroSection}
+                    disabled={editingSaving || uploading || operationLoading}
+                    className="flex-1 px-4 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-900 disabled:opacity-50 flex items-center justify-center gap-2 font-bold transition"
+                  >
+                    {editingSaving || uploading || operationLoading ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Save size={18} />
+                    )}
+                    Save to Supabase
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
