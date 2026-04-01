@@ -1,0 +1,643 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useData } from '../../context/DataContext';
+import { Plus, Edit2, Trash2, Save, X, MoreVertical, Upload, Eye, EyeOff, Loader2, Menu, Home, Tags, FileText, Users, Settings, LayoutDashboard } from 'lucide-react';
+import { supabase } from '../../supabaseClient';
+import { Link } from 'react-router-dom';
+
+const HomepageDashboard = () => {
+  const { categories, promises, loading } = useData();
+  const [trackers, setTrackers] = useState([]);
+  const [breakingNews, setBreakingNews] = useState([]);
+  const [editingTracker, setEditingTracker] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showNewsForm, setShowNewsForm] = useState(false);
+  const [newTracker, setNewTracker] = useState({
+    name: '',
+    description: '',
+    image_url: '',
+    color: 'bg-primary',
+    display_order: 0
+  });
+  const [newNews, setNewNews] = useState({
+    title: '',
+    description: '',
+    category: '',
+    type: 'update',
+    is_breaking: false
+  });
+  const [activeTab, setActiveTab] = useState('trackers');
+  const [categoryFilter, setCategoryFilter] = useState(null);
+  const [filteredPromises, setFilteredPromises] = useState([]);
+
+  // Load data
+  useEffect(() => {
+    setTrackers(categories.slice(0, 3));
+  }, [categories]);
+
+  // Handle category filter
+  useEffect(() => {
+    if (categoryFilter) {
+      setFilteredPromises(promises.filter(p => (p.categoryId || p.category_id) === categoryFilter));
+    } else {
+      setFilteredPromises([]);
+    }
+  }, [categoryFilter, promises]);
+
+  // Save tracker
+  const saveTracker = async () => {
+    try {
+      if (editingTracker) {
+        const { error } = await supabase
+          .from('categories')
+          .update(editingTracker)
+          .eq('id', editingTracker.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('categories')
+          .insert([newTracker]);
+        if (error) throw error;
+      }
+      setEditingTracker(null);
+      setShowAddForm(false);
+      setNewTracker({
+        name: '',
+        description: '',
+        image_url: '',
+        color: 'bg-primary',
+        display_order: 0
+      });
+    } catch (err) {
+      console.error('Error saving tracker:', err);
+    }
+  };
+
+  // Delete tracker
+  const deleteTracker = async (id) => {
+    if (confirm('Are you sure you want to delete this tracker?')) {
+      try {
+        const { error } = await supabase
+          .from('categories')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+        setTrackers(trackers.filter(t => t.id !== id));
+      } catch (err) {
+        console.error('Error deleting tracker:', err);
+      }
+    }
+  };
+
+  // Get category stats
+  const getCategoryStats = (categoryId) => {
+    const catPromises = promises.filter(p => (p.categoryId || p.category_id) === categoryId);
+    return {
+      total: catPromises.length,
+      completed: catPromises.filter(p => p.status === 'Completed').length,
+      inProgress: catPromises.filter(p => p.status === 'In Progress').length,
+    };
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="animate-spin text-primary" size={48} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* HEADER PLACEHOLDER - Usually comes from Navbar component */}
+      <header className="sticky top-0 z-40 bg-white border-b border-outline-variant">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-black text-primary">नेपाल ट्रयाकर. Admin</h1>
+          <div className="text-sm text-on-surface-variant">Dashboard Management</div>
+        </div>
+      </header>
+
+      {/* HERO SECTION MANAGEMENT */}
+      <section className="py-12 px-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-b border-outline-variant">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+              <h2 className="text-4xl font-black text-primary mb-2 font-headline">Hero Section</h2>
+              <p className="text-on-surface-variant">Manage the main homepage hero section title and content</p>
+            </div>
+            <button className="px-6 py-3 bg-secondary text-white rounded-xl font-bold hover:shadow-lg transition-all">
+              Edit Hero Content
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* TAB NAVIGATION */}
+      <div className="sticky top-16 z-30 bg-white border-b border-outline-variant">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-8">
+            <button
+              onClick={() => setActiveTab('trackers')}
+              className={`py-4 font-bold border-b-2 transition-colors ${
+                activeTab === 'trackers'
+                  ? 'text-primary border-primary'
+                  : 'text-on-surface-variant border-transparent hover:text-primary'
+              }`}
+            >
+              🔹 Featured Trackers (Thumbnails)
+            </button>
+            <button
+              onClick={() => setActiveTab('tracker-details')}
+              className={`py-4 font-bold border-b-2 transition-colors ${
+                activeTab === 'tracker-details'
+                  ? 'text-primary border-primary'
+                  : 'text-on-surface-variant border-transparent hover:text-primary'
+              }`}
+            >
+              📋 Tracker Details & Promises
+            </button>
+            <button
+              onClick={() => setActiveTab('breaking-news')}
+              className={`py-4 font-bold border-b-2 transition-colors ${
+                activeTab === 'breaking-news'
+                  ? 'text-primary border-primary'
+                  : 'text-on-surface-variant border-transparent hover:text-primary'
+              }`}
+            >
+              🔴 Breaking News
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* CONTENT AREA */}
+      <div className="py-12 px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* TAB 1: FEATURED TRACKERS */}
+          <AnimatePresence mode="wait">
+            {activeTab === 'trackers' && (
+              <motion.div key="trackers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {/* Section Title */}
+                <div className="mb-8 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-3xl font-black text-primary font-headline mb-2">प्रमुख ट्रयाकरहरू</h3>
+                    <p className="text-on-surface-variant">Manage the 3 featured tracker thumbnail cards</p>
+                    <p className="text-sm text-on-surface-variant/70 mt-1">These cards appear in the "Featured Trackers" section on the homepage</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowAddForm(true);
+                      setEditingTracker(null);
+                      setNewTracker({
+                        name: '',
+                        description: '',
+                        image_url: '',
+                        color: 'bg-primary',
+                        display_order: 0
+                      });
+                    }}
+                    className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                  >
+                    <Plus size={20} /> Add New Tracker
+                  </button>
+                </div>
+
+                {/* Add/Edit Form */}
+                <AnimatePresence>
+                  {showAddForm && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-8 bg-primary/5 rounded-2xl p-8 border border-primary/20"
+                    >
+                      <div className="flex justify-between items-center mb-6">
+                        <h4 className="text-xl font-bold text-primary">
+                          {editingTracker ? 'Edit Tracker' : 'Create New Tracker'}
+                        </h4>
+                        <button
+                          onClick={() => {
+                            setShowAddForm(false);
+                            setEditingTracker(null);
+                          }}
+                          className="text-slate-400 hover:text-red-500"
+                        >
+                          <X size={24} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                          <label className="block text-sm font-bold text-primary mb-2">Tracker Name (Nepali)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g., काठमाडौंको नयाँ युगको प्रतिबद्धता"
+                            className="w-full px-4 py-3 border border-outline-variant rounded-xl font-body focus:ring-2 focus:ring-primary outline-none"
+                            value={editingTracker?.name || newTracker.name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (editingTracker) {
+                                setEditingTracker({ ...editingTracker, name: val });
+                              } else {
+                                setNewTracker({ ...newTracker, name: val });
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-bold text-primary mb-2">Display Order</label>
+                          <input
+                            type="number"
+                            className="w-full px-4 py-3 border border-outline-variant rounded-xl font-body focus:ring-2 focus:ring-primary outline-none"
+                            value={editingTracker?.display_order || newTracker.display_order}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              if (editingTracker) {
+                                setEditingTracker({ ...editingTracker, display_order: val });
+                              } else {
+                                setNewTracker({ ...newTracker, display_order: val });
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="block text-sm font-bold text-primary mb-2">Description</label>
+                        <textarea
+                          placeholder="Brief description of this tracker..."
+                          rows="3"
+                          className="w-full px-4 py-3 border border-outline-variant rounded-xl font-body focus:ring-2 focus:ring-primary outline-none"
+                          value={editingTracker?.description || newTracker.description}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (editingTracker) {
+                              setEditingTracker({ ...editingTracker, description: val });
+                            } else {
+                              setNewTracker({ ...newTracker, description: val });
+                            }
+                          }}
+                        />
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="block text-sm font-bold text-primary mb-2">Hero Image URL</label>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/image.jpg"
+                          className="w-full px-4 py-3 border border-outline-variant rounded-xl font-body focus:ring-2 focus:ring-primary outline-none"
+                          value={editingTracker?.image_url || newTracker.image_url}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (editingTracker) {
+                              setEditingTracker({ ...editingTracker, image_url: val });
+                            } else {
+                              setNewTracker({ ...newTracker, image_url: val });
+                            }
+                          }}
+                        />
+                        {(editingTracker?.image_url || newTracker.image_url) && (
+                          <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-outline-variant">
+                            <img
+                              src={editingTracker?.image_url || newTracker.image_url}
+                              alt="preview"
+                              className="w-full h-full object-cover"
+                              onError={(e) => (e.target.src = 'https://via.placeholder.com/400x200?text=Image+Error')}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3 justify-end">
+                        <button
+                          onClick={() => {
+                            setShowAddForm(false);
+                            setEditingTracker(null);
+                          }}
+                          className="px-6 py-2 border border-outline-variant text-primary rounded-xl font-bold hover:bg-surface transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveTracker}
+                          className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                        >
+                          <Save size={18} /> {editingTracker ? 'Update' : 'Create'} Tracker
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Tracker Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {trackers.map((tracker) => {
+                    const stats = getCategoryStats(tracker.id);
+                    return (
+                      <motion.div
+                        key={tracker.id}
+                        layout
+                        className="group bg-white rounded-2xl overflow-hidden border border-outline-variant shadow-sm hover:shadow-premium transition-all"
+                      >
+                        {/* Header with Image */}
+                        <div className="relative h-40 overflow-hidden bg-slate-100">
+                          {tracker.image_url ? (
+                            <img
+                              src={tracker.image_url}
+                              alt={tracker.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              onError={(e) => (e.target.src = 'https://via.placeholder.com/400x200?text=No+Image')}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400">
+                              <Upload size={32} />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-linear-to-t from-primary/80 to-transparent" />
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6">
+                          <h4 className="font-black text-primary text-lg font-headline mb-2 line-clamp-2">
+                            {tracker.name}
+                          </h4>
+                          <p className="text-sm text-on-surface-variant mb-4 line-clamp-2">
+                            {tracker.description}
+                          </p>
+
+                          {/* Stats */}
+                          <div className="grid grid-cols-3 gap-2 mb-6">
+                            <div className="text-center p-2 bg-surface rounded-lg border border-outline-variant/50">
+                              <div className="font-black text-primary text-lg">{stats.total}</div>
+                              <div className="text-[9px] font-bold text-on-surface-variant/60 uppercase">कुल</div>
+                            </div>
+                            <div className="text-center p-2 bg-accent-emerald/5 rounded-lg border border-accent-emerald/10">
+                              <div className="font-black text-accent-emerald text-lg">{stats.completed}</div>
+                              <div className="text-[9px] font-bold text-accent-emerald/60 uppercase">पूरा</div>
+                            </div>
+                            <div className="text-center p-2 bg-accent-amber/5 rounded-lg border border-accent-amber/10">
+                              <div className="font-black text-accent-amber text-lg">{stats.inProgress}</div>
+                              <div className="text-[9px] font-bold text-accent-amber/60 uppercase">प्रगति</div>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingTracker(tracker);
+                                setShowAddForm(true);
+                              }}
+                              className="flex-1 py-2 bg-primary/10 text-primary rounded-lg font-bold text-sm hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2"
+                            >
+                              <Edit2 size={16} /> Edit
+                            </button>
+                            <button
+                              onClick={() => deleteTracker(tracker.id)}
+                              className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                            >
+                              <Trash2 size={16} /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {/* TAB 2: TRACKER DETAILS */}
+            {activeTab === 'tracker-details' && (
+              <motion.div key="details" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="mb-8">
+                  <h3 className="text-3xl font-black text-primary font-headline mb-4">Tracker Details & Promises</h3>
+                  <p className="text-on-surface-variant mb-6">
+                    Select a tracker to view and manage its categories and promises
+                  </p>
+
+                  {/* Tracker Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    {trackers.map((tracker) => (
+                      <button
+                        key={tracker.id}
+                        onClick={() => setCategoryFilter(categoryFilter === tracker.id ? null : tracker.id)}
+                        className={`p-4 rounded-xl font-bold transition-all text-left ${
+                          categoryFilter === tracker.id
+                            ? 'bg-primary text-white shadow-lg'
+                            : 'bg-surface border border-outline-variant hover:border-primary'
+                        }`}
+                      >
+                        <div className="font-headline">{tracker.name}</div>
+                        <div className="text-sm opacity-70 mt-1">{getCategoryStats(tracker.id).total} Promises</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {categoryFilter && (
+                    <div className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl p-8 border border-primary/20">
+                      <div className="flex justify-between items-start mb-6">
+                        <div>
+                          <h4 className="text-2xl font-black text-primary font-headline mb-2">
+                            {trackers.find(t => t.id === categoryFilter)?.name}
+                          </h4>
+                          <p className="text-on-surface-variant">
+                            Manage promises and categories for this tracker
+                          </p>
+                        </div>
+                        <button className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2">
+                          <Plus size={18} /> Add Promise
+                        </button>
+                      </div>
+
+                      {/* Promises List */}
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {filteredPromises.length > 0 ? (
+                          filteredPromises.map((promise) => (
+                            <div
+                              key={promise.id}
+                              className="bg-white p-4 rounded-xl border border-outline-variant hover:border-primary transition-all"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <h5 className="font-bold text-slate-800">{promise.title}</h5>
+                                  <p className="text-sm text-on-surface-variant mt-1 line-clamp-1">
+                                    {promise.description}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3 ml-4">
+                                  <span
+                                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                      promise.status === 'Completed'
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : promise.status === 'In Progress'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    {promise.status}
+                                  </span>
+                                  <button className="text-slate-400 hover:text-primary">
+                                    <MoreVertical size={18} />
+                                  </button>
+                                </div>
+                              </div>
+                              {promise.progress !== undefined && (
+                                <div className="mt-3 w-full bg-slate-200 rounded-full h-2">
+                                  <div
+                                    className="bg-primary h-full rounded-full transition-all"
+                                    style={{ width: `${promise.progress}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-on-surface-variant">
+                            No promises found for this tracker. Create one to get started!
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* TAB 3: BREAKING NEWS */}
+            {activeTab === 'breaking-news' && (
+              <motion.div key="breaking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="mb-8 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-3xl font-black text-primary font-headline mb-2">Breaking News</h3>
+                    <p className="text-on-surface-variant">Create and manage breaking news alerts that appear in the dashboard</p>
+                  </div>
+                  <button
+                    onClick={() => setShowNewsForm(!showNewsForm)}
+                    className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                  >
+                    <Plus size={20} /> Add Breaking News
+                  </button>
+                </div>
+
+                {/* News Form */}
+                <AnimatePresence>
+                  {showNewsForm && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mb-8 bg-red-50 rounded-2xl p-8 border border-red-200"
+                    >
+                      <div className="flex justify-between items-center mb-6">
+                        <h4 className="text-xl font-bold text-red-700">Create New Breaking News</h4>
+                        <button
+                          onClick={() => setShowNewsForm(false)}
+                          className="text-slate-400 hover:text-red-500"
+                        >
+                          <X size={24} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                          <label className="block text-sm font-bold text-red-700 mb-2">News Title</label>
+                          <input
+                            type="text"
+                            placeholder="Breaking news headline..."
+                            className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-red-600 outline-none"
+                            value={newNews.title}
+                            onChange={(e) => setNewNews({ ...newNews, title: e.target.value })}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-bold text-red-700 mb-2">Category</label>
+                          <select
+                            className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-red-600 outline-none"
+                            value={newNews.category}
+                            onChange={(e) => setNewNews({ ...newNews, category: e.target.value })}
+                          >
+                            <option value="">Select a tracker...</option>
+                            {trackers.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="block text-sm font-bold text-red-700 mb-2">Description</label>
+                        <textarea
+                          placeholder="Detailed news description..."
+                          rows="3"
+                          className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-red-600 outline-none"
+                          value={newNews.description}
+                          onChange={(e) => setNewNews({ ...newNews, description: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-4 mb-6">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newNews.is_breaking}
+                            onChange={(e) => setNewNews({ ...newNews, is_breaking: e.target.checked })}
+                            className="w-4 h-4"
+                          />
+                          <span className="font-bold text-red-700">Mark as Breaking Alert</span>
+                        </label>
+                      </div>
+
+                      <div className="flex gap-3 justify-end">
+                        <button
+                          onClick={() => setShowNewsForm(false)}
+                          className="px-6 py-2 border border-outline-variant text-primary rounded-xl font-bold hover:bg-surface transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            console.log('Save news:', newNews);
+                            setShowNewsForm(false);
+                            setNewNews({ title: '', description: '', category: '', type: 'update', is_breaking: false });
+                          }}
+                          className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                        >
+                          <Save size={18} /> Post Breaking News
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* News List */}
+                <div className="space-y-4">
+                  <div className="bg-white rounded-2xl p-6 border border-outline-variant">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
+                      <h4 className="font-bold text-slate-800">Recent Breaking News</h4>
+                    </div>
+                    <p className="text-sm text-on-surface-variant">Breaking news items will appear here</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* FOOTER PLACEHOLDER */}
+      <footer className="bg-primary text-white mt-12 border-t border-primary/20">
+        <div className="max-w-7xl mx-auto px-6 py-8 text-center text-sm">
+          <p>नेपाल ट्रयाकर. • Dashboard Admin Panel © 2026</p>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default HomepageDashboard;

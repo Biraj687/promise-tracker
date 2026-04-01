@@ -55,7 +55,7 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {localError && (
               <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm font-medium border border-red-200 flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                 <span>{localError}</span>
               </div>
             )}
@@ -89,7 +89,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all focus:ring-4 focus:ring-blue-500/30 flex justify-center items-center disabled:cursor-not-allowed"
+              className="w-full py-3.5 px-4 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 transition-all focus:ring-4 focus:ring-blue-500/30 flex justify-center items-center disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>

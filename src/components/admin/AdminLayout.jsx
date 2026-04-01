@@ -32,7 +32,7 @@ const AdminLayout = () => {
       {/* Sidebar */}
       <aside className="w-64 bg-white shadow-md hidden md:flex flex-col">
         <div className="p-6">
-          <h2 className="text-xl font-bold font-heading text-primary bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+          <h2 className="text-xl font-bold font-heading text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600">
             Nepal Tracker
           </h2>
           <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider">Admin Panel</p>
@@ -89,7 +89,7 @@ const AdminLayout = () => {
         {/* Error Messages */}
         {(authError || logoutError) && (
           <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-800">{authError || logoutError}</p>
             </div>

@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import HomepageDashboard from './pages/admin/HomepageDashboard';
 import ManageCategories from './pages/admin/ManageCategories';
 import ManagePromises from './pages/admin/ManagePromises';
 import ManageNews from './pages/admin/ManageNews';
@@ -25,7 +26,7 @@ const MainLayout = ({ children }) => {
   return (
     <>
       <Navbar />
-      <main className="flex-grow">
+      <main className="grow">
         {children}
       </main>
       <Footer />
@@ -58,7 +59,8 @@ const AppRoutes = () => {
           <Route path="/login" element={<Login />} />
 
           {/* Protected Admin Routes */}
-          <Route path="/admin" element={<ProtectedAdminRoute><AdminLayout /></ProtectedAdminRoute>}>
+          <Route path="/admin" element={<ProtectedAdminRoute><HomepageDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin-old" element={<ProtectedAdminRoute><AdminLayout /></ProtectedAdminRoute>}>
             <Route index element={<AdminDashboard />} />
             <Route path="categories" element={<ManageCategories />} />
             <Route path="promises" element={<ManagePromises />} />

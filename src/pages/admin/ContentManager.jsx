@@ -325,9 +325,9 @@ const ContentManager = () => {
             : 'bg-red-50 border-red-200 text-red-700'
         }`}>
           {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
           ) : (
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <AlertCircle className="w-5 h-5 shrink-0" />
           )}
           <p className="text-sm font-medium">{message.text}</p>
         </div>

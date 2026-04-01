@@ -9,8 +9,8 @@ const Hero = () => {
   return (
     <section className="relative overflow-hidden pt-32 pb-20 lg:pt-48 lg:pb-32 bg-white">
       {/* Decorative background elements */}
-      <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-[400px] h-[400px] bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-150 h-150 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-100 h-100 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
@@ -78,13 +78,13 @@ const Hero = () => {
             transition={{ duration: 1, ease: "easeOut" }}
             className="flex-1 relative"
           >
-            <div className="aspect-[4/5] w-full max-w-[500px] mx-auto rounded-3xl overflow-hidden shadow-2xl border-[12px] border-white glass-card">
+            <div className="aspect-4/5 w-full max-w-125 mx-auto rounded-3xl overflow-hidden shadow-2xl border-12 border-white glass-card">
               <img 
                 alt="Kathmandu Drone View" 
                 className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-1000" 
                 src={hero.heroImageUrl || "https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop"}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-t from-primary/40 to-transparent pointer-events-none" />
               
               {/* Floating Stat Card */}
               <div className="absolute bottom-8 left-8 right-8 glass-card p-6 rounded-2xl border border-white/40 shadow-premium">

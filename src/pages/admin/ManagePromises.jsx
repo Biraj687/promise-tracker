@@ -232,7 +232,7 @@ const ManagePromises = () => {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-[2rem] border border-slate-200 p-6"
+          className="bg-linear-to-br from-slate-50 to-slate-100 rounded-4xl border border-slate-200 p-6"
         >
           <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
             <ImageIcon size={24} className="text-blue-500" />
@@ -278,7 +278,7 @@ const ManagePromises = () => {
           return (
             <motion.div
               layout key={tracker.id}
-              className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden hover:shadow-premium transition-all group"
+              className="bg-white rounded-4xl border border-slate-200 overflow-hidden hover:shadow-premium transition-all group"
             >
               <div className="h-40 relative">
                 {tracker.image_url ? (
@@ -417,7 +417,7 @@ const ManagePromises = () => {
                   {/* Add New Promise Form */}
                   <AnimatePresence>
                     {showAddPromiseForm && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-primary/5 rounded-[2rem] border border-primary/20 p-8 space-y-6">
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-primary/5 rounded-4xl border border-primary/20 p-8 space-y-6">
                          <div className="flex justify-between items-center">
                            <h4 className="font-bold text-primary flex items-center gap-2"><Plus size={18} /> Create New Commitment</h4>
                            <button onClick={() => setShowAddPromiseForm(false)} className="text-slate-400 hover:text-red-500"><X size={20} /></button>
@@ -432,7 +432,7 @@ const ManagePromises = () => {
                                        {t} <button onClick={() => removeTag(t)}><X size={10} /></button>
                                     </span>
                                   ))}
-                                  <input type="text" placeholder="Add tag + Enter" className="flex-1 min-w-[120px] bg-transparent outline-none text-[10px] font-bold" value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={handleAddTag} />
+                                  <input type="text" placeholder="Add tag + Enter" className="flex-1 min-w-30 bg-transparent outline-none text-[10px] font-bold" value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={handleAddTag} />
                                </div>
                             </div>
                             <div className="space-y-4">
@@ -478,9 +478,9 @@ const ManagePromises = () => {
                       const isExpanded = expandedPromise === promise.id;
 
                       return (
-                        <div key={promise.id} className={`border rounded-[2rem] overflow-hidden transition-all ${isEditing ? 'border-primary ring-4 ring-primary/5' : 'border-slate-100 hover:border-slate-200'}`}>
+                        <div key={promise.id} className={`border rounded-4xl overflow-hidden transition-all ${isEditing ? 'border-primary ring-4 ring-primary/5' : 'border-slate-100 hover:border-slate-200'}`}>
                            <div className={`p-6 flex items-center gap-6 ${isEditing ? 'bg-primary/5' : isExpanded ? 'bg-slate-50' : 'bg-white'}`}>
-                              <div className="w-24 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
+                              <div className="w-24 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0">
                                  {promise.hero_image_url ? <img src={promise.hero_image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={20} /></div>}
                               </div>
                               <div className="flex-1 min-w-0">

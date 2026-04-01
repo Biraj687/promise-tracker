@@ -76,7 +76,7 @@ const RecentUpdates = ({ limit = 4, categoryId = null }) => {
             
             <motion.div 
               whileHover={{ y: -10 }}
-              className="aspect-[4/3] bg-white rounded-3xl overflow-hidden shadow-premium border border-outline-variant relative group cursor-pointer"
+              className="aspect-4/3 bg-white rounded-3xl overflow-hidden shadow-premium border border-outline-variant relative group cursor-pointer"
             >
               <img 
                 alt={featuredUpdate.title} 
@@ -86,7 +86,7 @@ const RecentUpdates = ({ limit = 4, categoryId = null }) => {
                   e.target.src = 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&auto=format&fit=crop';
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+              <div className="absolute inset-0 bg-linear-to-t from-primary/90 via-primary/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
               
               <div className="absolute top-4 right-4">
                 {featuredUpdate.source_url && (
@@ -131,21 +131,21 @@ const RecentUpdates = ({ limit = 4, categoryId = null }) => {
                   viewport={{ once: true }}
                   className="bg-white p-6 rounded-2xl flex gap-6 items-center group cursor-pointer border border-outline-variant hover:border-primary/20 hover:shadow-premium transition-all duration-300"
                 >
-                  <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-surface-container flex flex-col items-center justify-center border border-outline-variant group-hover:bg-primary group-hover:text-white transition-all duration-300">
+                  <div className="shrink-0 w-16 h-16 rounded-xl bg-surface-container flex flex-col items-center justify-center border border-outline-variant group-hover:bg-primary group-hover:text-white transition-all duration-300">
                     <span className="text-xs font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 leading-none mb-1">
                       {formatDate(update.created_at).split(' ')[0]}
                     </span>
                     <span className="text-sm font-black leading-none">{formatDate(update.created_at).split(' ').slice(1).join(' ')}</span>
                   </div>
                   
-                  <div className="flex-grow">
+                  <div className="grow">
                     <div className="flex items-center gap-3 mb-2">
                       <span className="px-2.5 py-1 bg-primary/5 text-primary text-[10px] font-black rounded-full uppercase tracking-widest border border-primary/5">
                         {getCategoryName(update.category_id)}
                       </span>
                       {update.news_type === 'progress' && (
                         <div className="flex items-center gap-1.5 text-accent-emerald">
-                          <Check size={14} className="stroke-[3]" />
+                          <Check size={14} className="stroke-3" />
                           <span className="text-[10px] font-black uppercase tracking-widest">सत्यापित</span>
                         </div>
                       )}
@@ -160,7 +160,7 @@ const RecentUpdates = ({ limit = 4, categoryId = null }) => {
                       href={update.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-shrink-0 w-10 h-10 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-on-surface-variant group-hover:bg-primary group-hover:text-white group-hover:rotate-45 transition-all duration-500"
+                      className="shrink-0 w-10 h-10 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-on-surface-variant group-hover:bg-primary group-hover:text-white group-hover:rotate-45 transition-all duration-500"
                     >
                       <ExternalLink size={20} />
                     </a>

@@ -73,7 +73,7 @@ const PromiseOverview = () => {
       {/* Premium Hero Section */}
       <section className="relative py-20 lg:py-32 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full bg-primary/5 -z-10" />
-        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-3xl -z-10" />
+        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-125 h-125 bg-secondary/10 rounded-full blur-3xl -z-10" />
         
         <div className="max-w-7xl mx-auto px-6 text-center">
           <motion.div
@@ -140,7 +140,7 @@ const PromiseOverview = () => {
                     alt={portal.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-primary/80 to-transparent" />
                   <div className="absolute bottom-6 left-6 right-6">
                     <div className="flex items-center gap-2 text-white/80 text-xs font-bold uppercase tracking-widest mb-2">
                       <MapPin size={14} className="text-secondary" />
@@ -193,7 +193,7 @@ const PromiseOverview = () => {
       <section className="py-24 px-6 relative overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="bg-primary rounded-[3rem] p-12 lg:p-20 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-secondary/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-100 h-100 bg-secondary/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
             
             <div className="relative z-10 max-w-2xl mx-auto text-center">
               <h2 className="font-headline text-4xl lg:text-5xl font-black text-white mb-6">हाम्रो अभियानमा जोड्नुहोस्</h2>

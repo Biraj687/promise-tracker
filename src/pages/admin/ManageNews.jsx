@@ -261,7 +261,7 @@ const ManageNews = () => {
           
           if (filtered.length === 0) {
             return (
-              <div className="col-span-full py-20 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+              <div className="col-span-full py-20 text-center bg-slate-50 rounded-4xl border border-dashed border-slate-200">
                 <Globe size={48} className="mx-auto text-slate-300 mb-4" />
                 <p className="text-slate-500 font-bold">
                   {filterPublished === null && 'No updates created yet.'}
@@ -289,7 +289,7 @@ const ManageNews = () => {
                 </div>
               </div>
 
-              <div className="w-32 h-24 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0">
+              <div className="w-32 h-24 bg-slate-100 rounded-2xl overflow-hidden shrink-0">
                 {update.image_url ? <img src={update.image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Layout size={24} /></div>}
               </div>
               <div className="flex-1 min-w-0">
