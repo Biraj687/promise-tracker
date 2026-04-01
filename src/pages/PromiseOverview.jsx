@@ -22,7 +22,11 @@ const PromiseOverview = () => {
   // Transform categories to display format
   useEffect(() => {
     if (categories && categories.length > 0) {
-      const trackers = categories.slice(0, 3).map((cat, idx) => {
+      // Only show first 3 categories, filtering out any undefined/deleted ones
+      const trackers = categories
+        .filter(cat => cat && cat.id && cat.name) // Filter out deleted/invalid categories
+        .slice(0, 3)
+        .map((cat, idx) => {
         const stats = getCategoryStats(cat.id);
         const images = [
           'https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop',

@@ -65,6 +65,41 @@ export const DataProvider = ({ children }) => {
     };
 
     initializeData();
+
+    // ========== REAL-TIME SUBSCRIPTIONS ==========
+    // Subscribe to categories table changes (insert, update, delete)
+    const categoriesSubscription = supabase
+      .channel('categories-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'categories' },
+        (payload) => {
+          console.log('📢 Categories changed:', payload);
+          // Refresh categories when any change happens
+          fetchCategories().catch(err => console.warn('Failed to refresh categories:', err));
+        }
+      )
+      .subscribe();
+
+    // Subscribe to promises table changes
+    const promisesSubscription = supabase
+      .channel('promises-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promises' },
+        (payload) => {
+          console.log('📢 Promises changed:', payload);
+          // Refresh promises when any change happens
+          fetchPromises().catch(err => console.warn('Failed to refresh promises:', err));
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      supabase.removeChannel(categoriesSubscription);
+      supabase.removeChannel(promisesSubscription);
+    };
   }, []);
 
   // ============================================================================
