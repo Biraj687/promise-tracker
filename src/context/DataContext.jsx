@@ -416,8 +416,33 @@ export const DataProvider = ({ children }) => {
   // NEWS UPDATES OPERATIONS - FETCH FROM SUPABASE
   // ============================================================================
 
-  const fetchNewsUpdates = async () => {
+  // Fetch ALL news updates (for admin management)
+  const fetchAllNewsUpdates = async () => {
     try {
+      console.log('📋 Fetching all news updates (admin)...');
+      const { data, error: fetchError } = await supabase
+        .from('news_updates')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (fetchError) throw new Error(`Failed to fetch news updates: ${fetchError.message}`);
+
+      console.log('✅ Fetched', data?.length || 0, 'news updates');
+      setNewsUpdates(data || []);
+      setError(null);
+      return data || [];
+    } catch (err) {
+      console.error("News updates fetch failed:", err);
+      setNewsUpdates([]);
+      return [];
+    }
+  };
+
+  // Fetch only published news (for public homepage)
+  const fetchPublishedNews = async () => {
+    try {
+      console.log('📰 Fetching published news for homepage...');
       const { data, error: fetchError } = await supabase
         .from('news_updates')
         .select('*')
@@ -425,15 +450,18 @@ export const DataProvider = ({ children }) => {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (fetchError) throw new Error(`Failed to fetch news updates: ${fetchError.message}`);
+      if (fetchError) throw new Error(`Failed to fetch published news: ${fetchError.message}`);
 
-      setNewsUpdates(data || []);
-      setError(null);
+      console.log('✅ Fetched', data?.length || 0, 'published news items');
+      return data || [];
     } catch (err) {
-      console.error("News updates fetch failed:", err);
-      setNewsUpdates([]);
+      console.error("Published news fetch failed:", err);
+      return [];
     }
   };
+
+  // Alias for backward compatibility - use the admin version
+  const fetchNewsUpdates = fetchAllNewsUpdates;
 
   const addNewsUpdate = async (newsData) => {
     try {
@@ -446,18 +474,24 @@ export const DataProvider = ({ children }) => {
             image_url: newsData.image_url,
             source_url: newsData.source_url,
             source_name: newsData.source_name,
-            category_id: newsData.category_id,
-            promise_id: newsData.promise_id,
+            category_id: newsData.category_id || null,
+            promise_id: newsData.promise_id || null,
             news_type: newsData.news_type || 'update',
             thumbnail_url: newsData.thumbnail_url,
-            is_published: newsData.is_published || false
+            is_published: Boolean(newsData.is_published),
+            published_date: newsData.is_published ? new Date().toISOString().split('T')[0] : null,
+            created_at: new Date().toISOString()
           }
         ])
         .select();
 
-      if (insertError) throw new Error(`Failed to add news update: ${insertError.message}`);
+      if (insertError) {
+        console.error('❌ Insert error:', insertError);
+        throw new Error(`Failed to add news update: ${insertError.message}`);
+      }
 
       if (data && data.length > 0) {
+        console.log('✅ News update created:', data[0]);
         setNewsUpdates(prev => [data[0], ...prev]);
         return data[0];
       }
@@ -470,12 +504,17 @@ export const DataProvider = ({ children }) => {
 
   const updateNewsUpdate = async (id, updatedData) => {
     try {
+      // If publishing status changed, update published_date
+      const updatePayload = {
+        ...updatedData,
+        is_published: Boolean(updatedData.is_published),
+        published_date: updatedData.is_published ? new Date().toISOString().split('T')[0] : null,
+        updated_at: new Date().toISOString()
+      };
+
       const { error: updateError } = await supabase
         .from('news_updates')
-        .update({
-          ...updatedData,
-          updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', id);
 
       if (updateError) throw new Error(`Failed to update news update: ${updateError.message}`);
@@ -655,6 +694,8 @@ export const DataProvider = ({ children }) => {
     updateNewsUpdate,
     deleteNewsUpdate,
     fetchNewsUpdates,
+    fetchAllNewsUpdates,
+    fetchPublishedNews,
     getNewsByCategory,
     getNewsByPromise,
     // CMS operations

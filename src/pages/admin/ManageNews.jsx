@@ -9,6 +9,7 @@ const ManageNews = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [filterPublished, setFilterPublished] = useState(null); // null = all, true = published, false = draft
 
   const [formData, setFormData] = useState({
     title: '',
@@ -107,17 +108,54 @@ const ManageNews = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-black text-slate-800 font-display">🗞️ News & Progress Timeline</h1>
-          <p className="text-slate-500 font-medium mt-1">Manage progress updates and news items for the homepage timeline.</p>
+      {/* Header with Filter */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-black text-slate-800 font-display">🗞️ News & Progress Timeline</h1>
+            <p className="text-slate-500 font-medium mt-1">Manage progress updates and news items for the homepage timeline.</p>
+          </div>
+          <button 
+            onClick={() => setShowAddForm(true)}
+            className="bg-primary text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:shadow-primary/20 transition-all flex items-center gap-2"
+          >
+            <Plus size={18} /> New Update
+          </button>
         </div>
-        <button 
-          onClick={() => setShowAddForm(true)}
-          className="bg-primary text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:shadow-primary/20 transition-all flex items-center gap-2"
-        >
-          <Plus size={18} /> New Update
-        </button>
+
+        {/* Filter Buttons */}
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setFilterPublished(null)}
+            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+              filterPublished === null 
+                ? 'bg-primary text-white' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            📋 All ({newsUpdates.length})
+          </button>
+          <button 
+            onClick={() => setFilterPublished(true)}
+            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+              filterPublished === true 
+                ? 'bg-emerald-500 text-white' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            ✅ Published ({newsUpdates.filter(n => n.is_published).length})
+          </button>
+          <button 
+            onClick={() => setFilterPublished(false)}
+            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+              filterPublished === false 
+                ? 'bg-amber-500 text-white' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            📝 Drafts ({newsUpdates.filter(n => !n.is_published).length})
+          </button>
+        </div>
       </div>
 
       {message && (
@@ -216,33 +254,60 @@ const ManageNews = () => {
 
       {/* News Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {newsUpdates.length === 0 ? (
-          <div className="col-span-full py-20 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
-             <Globe size={48} className="mx-auto text-slate-300 mb-4" />
-             <p className="text-slate-500 font-bold">No updates published yet.</p>
-          </div>
-        ) : (
-          newsUpdates.map(update => (
-            <motion.div layout key={update.id} className="bg-white p-6 rounded-3xl border border-slate-100 flex gap-6 hover:shadow-premium transition-all group">
+        {(() => {
+          const filtered = filterPublished === null 
+            ? newsUpdates 
+            : newsUpdates.filter(n => n.is_published === filterPublished);
+          
+          if (filtered.length === 0) {
+            return (
+              <div className="col-span-full py-20 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                <Globe size={48} className="mx-auto text-slate-300 mb-4" />
+                <p className="text-slate-500 font-bold">
+                  {filterPublished === null && 'No updates created yet.'}
+                  {filterPublished === true && 'No published updates yet.'}
+                  {filterPublished === false && 'No draft updates yet.'}
+                </p>
+              </div>
+            );
+          }
+          
+          return filtered.map(update => (
+            <motion.div layout key={update.id} className={`bg-white p-6 rounded-3xl border flex gap-6 hover:shadow-premium transition-all group ${
+              update.is_published 
+                ? 'border-emerald-100 hover:border-emerald-200' 
+                : 'border-amber-100 hover:border-amber-200'
+            }`}>
+              {/* Status Badge */}
+              <div className="absolute -top-3 -right-3">
+                <div className={`px-3 py-1 rounded-full text-[10px] font-black text-white flex items-center gap-1 ${
+                  update.is_published 
+                    ? 'bg-emerald-500 shadow-lg' 
+                    : 'bg-amber-500 shadow-lg'
+                }`}>
+                  {update.is_published ? '✅ LIVE' : '📝 DRAFT'}
+                </div>
+              </div>
+
               <div className="w-32 h-24 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0">
-                 {update.image_url ? <img src={update.image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Layout size={24} /></div>}
+                {update.image_url ? <img src={update.image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Layout size={24} /></div>}
               </div>
               <div className="flex-1 min-w-0">
-                 <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${update.news_type === 'update' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{update.news_type}</span>
-                    <span className="text-[10px] font-bold text-slate-400">{new Date(update.created_at).toLocaleDateString()}</span>
-                 </div>
-                 <h4 className="font-bold text-slate-800 line-clamp-1 mb-1">{update.title}</h4>
-                 <p className="text-xs text-slate-500 line-clamp-2">{update.description}</p>
-                 <div className="flex items-center gap-3 mt-3">
-                    <button onClick={() => handleEdit(update)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"><Edit2 size={16} /></button>
-                    <button onClick={() => handleDelete(update.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16} /></button>
-                    {update.source_url && <a href={update.source_url} target="_blank" className="p-2 text-slate-400 hover:text-blue-500"><ExternalLink size={16} /></a>}
-                 </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${update.news_type === 'update' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>{update.news_type}</span>
+                  <span className="text-[10px] font-bold text-slate-400">{new Date(update.created_at).toLocaleDateString()}</span>
+                </div>
+                <h4 className="font-bold text-slate-800 line-clamp-1 mb-1">{update.title}</h4>
+                <p className="text-xs text-slate-500 line-clamp-2">{update.description}</p>
+                <div className="flex items-center gap-3 mt-3">
+                  <button onClick={() => handleEdit(update)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"><Edit2 size={16} /></button>
+                  <button onClick={() => handleDelete(update.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16} /></button>
+                  {update.source_url && <a href={update.source_url} target="_blank" className="p-2 text-slate-400 hover:text-blue-500"><ExternalLink size={16} /></a>}
+                </div>
               </div>
             </motion.div>
-          ))
-        )}
+          ));
+        })()}
       </div>
     </div>
   );
