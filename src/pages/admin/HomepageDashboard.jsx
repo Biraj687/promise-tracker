@@ -29,6 +29,14 @@ const HomepageDashboard = () => {
   const [activeTab, setActiveTab] = useState('trackers');
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [filteredPromises, setFilteredPromises] = useState([]);
+  const [showAddPromiseForm, setShowAddPromiseForm] = useState(false);
+  const [newPromise, setNewPromise] = useState({
+    title: '',
+    description: '',
+    status: 'Pending',
+    progress: 0,
+    category_id: null
+  });
 
   // Load data
   useEffect(() => {
@@ -86,6 +94,40 @@ const HomepageDashboard = () => {
       } catch (err) {
         console.error('Error deleting tracker:', err);
       }
+    }
+  };
+
+  // Save promise
+  const savePromise = async () => {
+    try {
+      if (!newPromise.title.trim()) {
+        alert('Please enter a promise title');
+        return;
+      }
+
+      const promiseToSave = {
+        ...newPromise,
+        category_id: categoryFilter,
+        categoryId: categoryFilter
+      };
+
+      const { error } = await supabase
+        .from('promises')
+        .insert([promiseToSave]);
+
+      if (error) throw error;
+
+      setShowAddPromiseForm(false);
+      setNewPromise({
+        title: '',
+        description: '',
+        status: 'Pending',
+        progress: 0,
+        category_id: null
+      });
+    } catch (err) {
+      console.error('Error saving promise:', err);
+      alert('Failed to save promise. Please try again.');
     }
   };
 
@@ -446,10 +488,98 @@ const HomepageDashboard = () => {
                             Manage promises and categories for this tracker
                           </p>
                         </div>
-                        <button className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2">
+                        <button 
+                          onClick={() => setShowAddPromiseForm(!showAddPromiseForm)}
+                          className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2">
                           <Plus size={18} /> Add Promise
                         </button>
                       </div>
+
+                      {/* Promise Form */}
+                      <AnimatePresence>
+                        {showAddPromiseForm && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mb-6 bg-primary/5 rounded-2xl p-8 border border-primary/20"
+                          >
+                            <div className="flex justify-between items-center mb-6">
+                              <h4 className="text-xl font-bold text-primary">Add New Promise</h4>
+                              <button
+                                onClick={() => setShowAddPromiseForm(false)}
+                                className="text-slate-400 hover:text-primary"
+                              >
+                                <X size={24} />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                              <div>
+                                <label className="block text-sm font-bold text-primary mb-2">Promise Title</label>
+                                <input
+                                  type="text"
+                                  placeholder="Enter promise title..."
+                                  className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                                  value={newPromise.title}
+                                  onChange={(e) => setNewPromise({ ...newPromise, title: e.target.value })}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-bold text-primary mb-2">Status</label>
+                                <select
+                                  className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                                  value={newPromise.status}
+                                  onChange={(e) => setNewPromise({ ...newPromise, status: e.target.value })}
+                                >
+                                  <option value="Pending">Pending</option>
+                                  <option value="In Progress">In Progress</option>
+                                  <option value="Completed">Completed</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="mb-6">
+                              <label className="block text-sm font-bold text-primary mb-2">Description</label>
+                              <textarea
+                                placeholder="Enter promise description..."
+                                rows="3"
+                                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none"
+                                value={newPromise.description}
+                                onChange={(e) => setNewPromise({ ...newPromise, description: e.target.value })}
+                              />
+                            </div>
+
+                            <div className="mb-6">
+                              <label className="block text-sm font-bold text-primary mb-2">Progress: {newPromise.progress}%</label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                className="w-full"
+                                value={newPromise.progress}
+                                onChange={(e) => setNewPromise({ ...newPromise, progress: parseInt(e.target.value) })}
+                              />
+                            </div>
+
+                            <div className="flex gap-3 justify-end">
+                              <button
+                                onClick={() => setShowAddPromiseForm(false)}
+                                className="px-6 py-2 border border-outline-variant text-primary rounded-xl font-bold hover:bg-surface transition-all"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={savePromise}
+                                className="px-6 py-2 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                              >
+                                <Save size={18} /> Save Promise
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
                       {/* Promises List */}
                       <div className="space-y-3 max-h-96 overflow-y-auto">
