@@ -40,7 +40,11 @@ const HomepageDashboard = () => {
 
   // Load data
   useEffect(() => {
-    setTrackers(categories.slice(0, 3));
+    if (categories && categories.length > 0) {
+      setTrackers(categories.slice(0, 3));
+    } else {
+      setTrackers([]);
+    }
   }, [categories]);
 
   // Handle category filter
@@ -373,6 +377,7 @@ const HomepageDashboard = () => {
                 </AnimatePresence>
 
                 {/* Tracker Cards Grid */}
+                {trackers && trackers.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {trackers.map((tracker) => {
                     const stats = getCategoryStats(tracker.id);
@@ -447,6 +452,29 @@ const HomepageDashboard = () => {
                     );
                   })}
                 </div>
+                ) : (
+                  <div className="text-center py-16 bg-surface rounded-2xl border border-outline-variant/50">
+                    <LayoutDashboard size={48} className="mx-auto text-slate-300 mb-4" />
+                    <p className="text-on-surface-variant font-medium mb-4">No trackers found</p>
+                    <p className="text-sm text-on-surface-variant/70 mb-6">Create your first tracker to get started</p>
+                    <button
+                      onClick={() => {
+                        setShowAddForm(true);
+                        setEditingTracker(null);
+                        setNewTracker({
+                          name: '',
+                          description: '',
+                          image_url: '',
+                          color: 'bg-primary',
+                          display_order: 0
+                        });
+                      }}
+                      className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2 mx-auto"
+                    >
+                      <Plus size={20} /> Create First Tracker
+                    </button>
+                  </div>
+                )}
               </motion.div>
             )}
 
