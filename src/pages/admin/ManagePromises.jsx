@@ -4,7 +4,7 @@ import { Plus, Edit2, Trash2, ChevronDown, X, Upload, Loader2, AlertCircle, Chec
 import { useData } from '../../context/DataContext';
 
 const ManagePromises = () => {
-  const { categories, promises, updateCategory, addPromise, updatePromise, deletePromise, uploadImage, operationLoading } = useData();
+  const { categories, promises, updateCategory, addPromise, updatePromise, deletePromise, uploadImage, operationLoading, uploadedImages, lastUploadedImage, fetchUploadedImages } = useData();
   const [message, setMessage] = useState(null);
   const [uploading, setUploading] = useState(false);
   
@@ -41,6 +41,14 @@ const ManagePromises = () => {
   const [promiseSaving, setPromiseSaving] = useState(false);
 
   // ============================================================================
+  // EFFECTS
+  // ============================================================================
+
+  useEffect(() => {
+    fetchUploadedImages();
+  }, []);
+
+  // ============================================================================
   // HANDLERS
   // ============================================================================
 
@@ -49,12 +57,28 @@ const ManagePromises = () => {
     if (!file) return;
     try {
       setUploading(true);
-      const url = await uploadImage(file);
-      setHeroImagePreview(url);
-      setEditHeroData(prev => ({ ...prev, image_url: url }));
-      setMessage({ type: 'success', text: 'Tracker image uploaded!' });
+      setMessage(null);  // Clear previous messages
+      
+      console.log('🔄 Handling hero image upload:', file.name, 'Size:', file.size, 'Type:', file.type);
+      
+      const publicUrl = await uploadImage(file);
+      console.log('✅ Upload successful, URL:', publicUrl);
+      
+      setHeroImagePreview(publicUrl);
+      setEditHeroData(prev => ({ ...prev, image_url: publicUrl }));
+      setMessage({ type: 'success', text: '✅ Tracker image uploaded successfully!' });
+      
+      // Clear input to allow re-upload of same file
+      e.target.value = '';
     } catch (err) {
-      setMessage({ type: 'error', text: `Upload failed: ${err.message}` });
+      console.error('❌ Upload error:', err);
+      setMessage({ 
+        type: 'error', 
+        text: `❌ Upload failed: ${err.message}. Check browser console for details.` 
+      });
+      
+      // Clear input on error too
+      e.target.value = '';
     } finally {
       setUploading(false);
     }
@@ -63,18 +87,35 @@ const ManagePromises = () => {
   const handlePromiseImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     try {
       setUploading(true);
-      const url = await uploadImage(file);
-      setPromiseImagePreview(url);
+      setMessage(null);  // Clear previous messages
+      
+      console.log('🔄 Handling image upload:', file.name, 'Size:', file.size, 'Type:', file.type);
+      
+      const publicUrl = await uploadImage(file);
+      console.log('✅ Upload successful, URL:', publicUrl);
+      
+      setPromiseImagePreview(publicUrl);
       if (editingPromise) {
-        setEditingPromise(prev => ({ ...prev, hero_image_url: url }));
+        setEditingPromise(prev => ({ ...prev, hero_image_url: publicUrl }));
       } else {
-        setNewPromise(prev => ({ ...prev, hero_image_url: url }));
+        setNewPromise(prev => ({ ...prev, hero_image_url: publicUrl }));
       }
-      setMessage({ type: 'success', text: 'Promise image uploaded!' });
+      setMessage({ type: 'success', text: '✅ Promise image uploaded successfully!' });
+      
+      // Clear input to allow re-upload of same file
+      e.target.value = '';
     } catch (err) {
-      setMessage({ type: 'error', text: `Upload failed: ${err.message}` });
+      console.error('❌ Upload error:', err);
+      setMessage({ 
+        type: 'error', 
+        text: `❌ Upload failed: ${err.message}. Check browser console for details.` 
+      });
+      
+      // Clear input on error too
+      e.target.value = '';
     } finally {
       setUploading(false);
     }
@@ -183,6 +224,47 @@ const ManagePromises = () => {
           {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
           {message.text}
           <button onClick={() => setMessage(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={18} /></button>
+        </motion.div>
+      )}
+
+      {/* Image Gallery */}
+      {uploadedImages && uploadedImages.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-[2rem] border border-slate-200 p-6"
+        >
+          <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <ImageIcon size={24} className="text-blue-500" />
+            📸 Uploaded Images Gallery ({uploadedImages.length})
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {uploadedImages.map((image) => (
+              <motion.div
+                key={image.id}
+                whileHover={{ scale: 1.05 }}
+                className="relative group cursor-pointer"
+                title={image.filename || 'Image'}
+              >
+                <img 
+                  src={image.image_url} 
+                  alt={image.filename || 'Uploaded image'}
+                  className="w-full h-32 object-cover rounded-lg border border-slate-300 group-hover:border-blue-400 transition-colors"
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex flex-col items-center justify-center">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(image.image_url);
+                      setMessage({ type: 'success', text: '✅ Image URL copied!' });
+                    }}
+                    className="bg-white text-slate-800 px-2 py-1 rounded text-xs font-bold hover:bg-slate-100 transition-colors"
+                  >
+                    Copy URL
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
       )}
 

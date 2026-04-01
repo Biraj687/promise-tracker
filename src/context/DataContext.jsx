@@ -12,9 +12,11 @@ export const DataProvider = ({ children }) => {
   const [categories, setCategories] = useState([]);
   const [promises, setPromises] = useState([]);
   const [newsUpdates, setNewsUpdates] = useState([]);
+  const [uploadedImages, setUploadedImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [operationLoading, setOperationLoading] = useState(false);
+  const [lastUploadedImage, setLastUploadedImage] = useState(null);
 
   // Initialize data on mount
   useEffect(() => {
@@ -175,35 +177,130 @@ export const DataProvider = ({ children }) => {
   // IMAGE UPLOAD & MANAGEMENT
   // ============================================================================
 
+  // Fetch list of uploaded images from storage
+  const fetchUploadedImages = async () => {
+    try {
+      console.log('📋 Fetching uploaded images...');
+      const { data, error: listError } = await supabase.storage
+        .from(IMAGES_BUCKET)
+        .list('public', {
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'created_at', order: 'desc' }
+        });
+
+      if (listError) {
+        console.warn('⚠️ Failed to list images:', listError);
+        return [];
+      }
+
+      // Map files with their public URLs
+      const images = (data || []).map(file => {
+        const { data: urlData } = supabase.storage
+          .from(IMAGES_BUCKET)
+          .getPublicUrl(`public/${file.name}`);
+        
+        return {
+          id: file.name,
+          filename: file.name,
+          image_url: urlData?.publicUrl,
+          name: file.name,
+          url: urlData?.publicUrl,
+          size: file.metadata?.size || 0,
+          uploadedAt: file.created_at,
+          created_at: file.created_at,
+          displayName: file.name.split('-').slice(1).join('-')
+        };
+      });
+
+      console.log('✅ Fetched', images.length, 'images');
+      setUploadedImages(images);
+      return images;
+    } catch (err) {
+      console.error('❌ Failed to fetch uploaded images:', err);
+      return [];
+    }
+  };
+
   const uploadImage = async (file) => {
     try {
       if (!file) throw new Error('No file provided');
       
-      setOperationLoading(true);
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(`Invalid file type. Allowed: JPG, PNG, WebP, GIF. Got: ${file.type}`);
+      }
       
-      // Create unique filename
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        throw new Error(`File too large. Max 5MB, got ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+      }
+      
+      setOperationLoading(true);
+      console.log('📤 Starting image upload:', file.name);
+      
+      // Create unique filename without special characters
       const timestamp = Date.now();
-      const fileName = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+      const sanitizedName = file.name
+        .replace(/[^a-zA-Z0-9.-]/g, '_')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+      const fileName = `${timestamp}-${sanitizedName}`;
+      
+      console.log('📝 Filename:', fileName);
+      console.log('🪣 Bucket:', IMAGES_BUCKET);
       
       // Upload to Supabase Storage
       const { data, error: uploadError } = await supabase.storage
         .from(IMAGES_BUCKET)
         .upload(`public/${fileName}`, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true,
+          contentType: file.type
         });
 
-      if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
+      if (uploadError) {
+        console.error('❌ Upload error:', uploadError);
+        throw new Error(`Image upload failed: ${uploadError.message} (Status: ${uploadError.statusCode})`);
+      }
+
+      console.log('✅ Upload successful:', data);
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      const { data: urlData } = supabase.storage
         .from(IMAGES_BUCKET)
         .getPublicUrl(`public/${fileName}`);
 
+      const publicUrl = urlData?.publicUrl;
+      
+      if (!publicUrl) {
+        throw new Error('Failed to generate public URL');
+      }
+
+      console.log('🔗 Public URL:', publicUrl);
+
+      // Update uploaded images list with new image
+      const newImage = {
+        id: fileName,
+        filename: fileName,
+        image_url: publicUrl,
+        url: publicUrl,
+        name: fileName,
+        size: file.size,
+        uploadedAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        displayName: sanitizedName
+      };
+      
+      setUploadedImages(prev => [newImage, ...prev]);
+      setLastUploadedImage(newImage);
+      
       setOperationLoading(false);
       return publicUrl;
     } catch (err) {
-      console.error("Upload image failed:", err);
+      console.error("❌ Upload image failed:", err);
       setOperationLoading(false);
       throw err;
     }
@@ -243,77 +340,32 @@ export const DataProvider = ({ children }) => {
 
       if (fetchError) throw new Error(`Failed to fetch promises: ${fetchError.message}`);
 
-      // Map snake_case from DB to camelCase if needed
-      const mappedData = (data || []).map(p => ({
-        ...p,
-        categoryId: p.category_id || p.categoryId,
-      }));
-
-      setPromises(mappedData);
+      setPromises(data || []);
       setError(null);
-      return mappedData;
+      return data;
     } catch (err) {
       console.warn("⚠️ Promise fetch warning:", err.message);
+      console.log("💡 Database might not be set up. Run: SUPABASE_SETUP.sql in Supabase");
       setPromises([]);
+      // Don't throw - allow app to continue
       return [];
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchPromiseById = async (id) => {
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('promises')
-        .select(`
-          *,
-          categories (
-             id,
-             name,
-             icon,
-             color
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-      
-      return {
-        ...data,
-        categoryId: data.category_id || data.categoryId
-      };
-    } catch (err) {
-      console.error("fetchPromiseById failed:", err);
-      return null;
-    }
-  };
-
   const addPromise = async (promiseData) => {
     try {
-      // Map JS to DB format
-      const dbData = {
-        title: promiseData.title,
-        description: promiseData.description,
-        status: promiseData.status || 'Pending',
-        progress: promiseData.progress || 0,
-        hero_image_url: promiseData.hero_image_url || null,
-        point_no: promiseData.point_no || 0,
-        category_id: promiseData.categoryId || promiseData.category_id,
-        responsible_ministry: promiseData.responsible_ministry || 'Administrative Office',
-      };
-
       const { data, error: insertError } = await supabase
         .from('promises')
-        .insert([dbData])
+        .insert([promiseData])
         .select();
 
       if (insertError) throw new Error(`Failed to add promise: ${insertError.message}`);
 
       if (data && data.length > 0) {
-        const newData = { ...data[0], categoryId: data[0].category_id };
-        setPromises(prev => [...prev, newData]);
-        return newData;
+        setPromises(prev => [...prev, data[0]]);
+        return data[0];
       }
       throw new Error('No data returned from insert');
     } catch (err) {
@@ -324,16 +376,9 @@ export const DataProvider = ({ children }) => {
 
   const updatePromise = async (id, updatedData) => {
     try {
-      // Map JS to DB format
-      const dbUpdates = { ...updatedData };
-      if (dbUpdates.categoryId) {
-        dbUpdates.category_id = dbUpdates.categoryId;
-        delete dbUpdates.categoryId;
-      }
-
       const { error: updateError } = await supabase
         .from('promises')
-        .update(dbUpdates)
+        .update(updatedData)
         .eq('id', id);
 
       if (updateError) throw new Error(`Failed to update promise: ${updateError.message}`);
@@ -341,7 +386,7 @@ export const DataProvider = ({ children }) => {
       setPromises(prev =>
         prev.map(p =>
           p.id === id
-            ? { ...p, ...updatedData, updatedAt: new Date().toISOString() }
+            ? { ...p, ...updatedData, updatedAt: new Date().toISOString().split('T')[0] }
             : p
         )
       );
@@ -401,11 +446,11 @@ export const DataProvider = ({ children }) => {
             image_url: newsData.image_url,
             source_url: newsData.source_url,
             source_name: newsData.source_name,
-            category_id: newsData.category_id || newsData.categoryId,
-            promise_id: newsData.promise_id || newsData.promiseId,
+            category_id: newsData.category_id,
+            promise_id: newsData.promise_id,
             news_type: newsData.news_type || 'update',
             thumbnail_url: newsData.thumbnail_url,
-            is_published: newsData.is_published ?? true
+            is_published: newsData.is_published || false
           }
         ])
         .select();
@@ -465,11 +510,11 @@ export const DataProvider = ({ children }) => {
   };
 
   const getNewsByCategory = (categoryId) => {
-    return newsUpdates.filter(n => (n.category_id || n.categoryId) === Number(categoryId));
+    return newsUpdates.filter(n => n.category_id === Number(categoryId));
   };
 
   const getNewsByPromise = (promiseId) => {
-    return newsUpdates.filter(n => (n.promise_id || n.promiseId) === Number(promiseId));
+    return newsUpdates.filter(n => n.promise_id === Number(promiseId));
   };
 
   // ============================================================================
@@ -562,7 +607,7 @@ export const DataProvider = ({ children }) => {
   // ============================================================================
 
   const getPromisesByCategory = (categoryId) => {
-    return promises.filter(p => (p.categoryId || p.category_id) === Number(categoryId));
+    return promises.filter(p => p.categoryId === Number(categoryId));
   };
 
   const getStats = () => {
@@ -584,6 +629,8 @@ export const DataProvider = ({ children }) => {
     categories,
     promises,
     newsUpdates,
+    uploadedImages,
+    lastUploadedImage,
     cmsContent,
     loading,
     operationLoading,
@@ -596,12 +643,12 @@ export const DataProvider = ({ children }) => {
     // Image operations
     uploadImage,
     deleteImage,
+    fetchUploadedImages,
     // Promise operations
     addPromise,
     updatePromise,
     deletePromise,
     fetchPromises,
-    fetchPromiseById,
     getPromisesByCategory,
     // News operations
     addNewsUpdate,

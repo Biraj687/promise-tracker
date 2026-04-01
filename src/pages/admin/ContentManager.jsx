@@ -58,27 +58,34 @@ const ContentManager = () => {
       setUploadingImage(true);
       setMessage(null);
 
-      // Upload to Supabase Storage
-      const result = await uploadImage(file, 'hero');
+      console.log('🔄 Handling hero image upload:', file.name, 'Size:', file.size, 'Type:', file.type);
+
+      // Upload to Supabase Storage - uploadImage returns URL directly
+      const publicUrl = await uploadImage(file);
       
-      if (result.success && result.url) {
-        setHeroImagePreview(result.url);
-        setFormData(prev => ({
-          ...prev,
-          heroImageUrl: result.url
-        }));
-        setMessage({
-          type: 'success',
-          text: 'Hero image uploaded successfully!'
-        });
-      } else {
-        throw new Error(result.error || 'Upload failed');
-      }
+      console.log('✅ Upload successful, URL:', publicUrl);
+      
+      setHeroImagePreview(publicUrl);
+      setFormData(prev => ({
+        ...prev,
+        heroImageUrl: publicUrl
+      }));
+      setMessage({
+        type: 'success',
+        text: '✅ Hero image uploaded successfully!'
+      });
+      
+      // Clear input to allow re-upload of same file
+      e.target.value = '';
     } catch (err) {
+      console.error('❌ Upload error:', err);
       setMessage({
         type: 'error',
-        text: `Upload failed: ${err.message}`
+        text: `❌ Upload failed: ${err.message}. Check browser console for details.`
       });
+      
+      // Clear input on error too
+      e.target.value = '';
     } finally {
       setUploadingImage(false);
     }

@@ -29,11 +29,29 @@ const ManageNews = () => {
     if (!file) return;
     try {
       setUploading(true);
-      const url = await uploadImage(file);
-      setImagePreview(url);
-      setFormData(prev => ({ ...prev, image_url: url }));
+      setMessage(null);
+      
+      console.log('🔄 Handling image upload:', file.name, 'Size:', file.size, 'Type:', file.type);
+      
+      const publicUrl = await uploadImage(file);
+      
+      console.log('✅ Upload successful, URL:', publicUrl);
+      
+      setImagePreview(publicUrl);
+      setFormData(prev => ({ ...prev, image_url: publicUrl }));
+      setMessage({ type: 'success', text: '✅ News image uploaded successfully!' });
+      
+      // Clear input to allow re-upload of same file
+      e.target.value = '';
     } catch (err) {
-      setMessage({ type: 'error', text: `Upload failed: ${err.message}` });
+      console.error('❌ Upload error:', err);
+      setMessage({ 
+        type: 'error', 
+        text: `❌ Upload failed: ${err.message}. Check browser console for details.` 
+      });
+      
+      // Clear input on error too
+      e.target.value = '';
     } finally {
       setUploading(false);
     }

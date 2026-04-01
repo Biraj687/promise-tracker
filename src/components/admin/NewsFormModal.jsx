@@ -49,6 +49,7 @@ const NewsFormModal = ({ isOpen, onClose, editingNews, categories }) => {
     const validation = validateFile(file, 'image');
     if (!validation.valid) {
       setError(validation.error);
+      e.target.value = '';
       return;
     }
 
@@ -56,34 +57,27 @@ const NewsFormModal = ({ isOpen, onClose, editingNews, categories }) => {
       setUploadingImage(true);
       setError(null);
 
-      // Create secure FormData
-      const { formData: secureForm, error: formError } = createSecureFormData(file, 'image', {
-        title: formData.title,
-        type: 'news'
-      });
-
-      if (formError) {
-        setError(formError);
-        return;
-      }
-
-      // Create thumbnail locally
-      const thumbnail = await createImageThumbnail(file, 200, 200);
+      console.log('🔄 Handling image upload:', file.name, 'Size:', file.size, 'Type:', file.type);
 
       // Upload main image
       const imageUrl = await uploadImage(file);
+
+      console.log('✅ Upload successful, URL:', imageUrl);
 
       // Set both image and thumbnail
       setFormData(prev => ({
         ...prev,
         image_url: imageUrl,
-        thumbnail_url: thumbnail
+        thumbnail_url: imageUrl  // Use main image as thumbnail too
       }));
       setPreview(imageUrl);
       
+      // Clear input to allow re-upload of same file
+      e.target.value = '';
     } catch (err) {
-      console.error('Upload error:', err);
-      setError('छवि अपलोड गर्न असफल। कृपया पुनः प्रयास गर्नुहोस्।');
+      console.error('❌ Upload error:', err);
+      setError(`📸 Image upload failed: ${err.message}`);
+      e.target.value = '';
     } finally {
       setUploadingImage(false);
     }
