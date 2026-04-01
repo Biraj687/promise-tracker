@@ -23,6 +23,7 @@ const AdminLayout = () => {
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin' },
     { name: 'Content Manager', icon: FileText, path: '/admin/content' },
     { name: 'Manage Promises', icon: CheckSquare, path: '/admin/promises' },
+    { name: 'Manage News', icon: FileText, path: '/admin/news' },
     { name: 'Manage Users', icon: Users, path: '/admin/users' },
   ];
 

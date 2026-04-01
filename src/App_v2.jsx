@@ -56,13 +56,16 @@ function App() {
   // Handle admin login
   const handleAdminLogin = (password) => {
     setAuthError('');
-    if (password === 'admin2024') {
+    // IMPORTANT: In production, this should be verified on the backend
+    // For demo purposes only - use environment variable in production
+    const DEMO_PASSWORD = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'demo_admin_2024';
+    if (password === DEMO_PASSWORD) {
       setAdminAuthenticated(true);
       setIsAdminMode(true);
       localStorage.setItem('adminAuth', 'true');
       setAdminPassword('');
     } else {
-      setAuthError('Invalid password. Demo password: admin2024');
+      setAuthError('Invalid password. Demo password is configured in environment variables.');
       setTimeout(() => setAuthError(''), 3000);
     }
   };

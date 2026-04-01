@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, ChevronDown, X, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, Save } from 'lucide-react';
+import { Plus, Edit2, Trash2, ChevronDown, X, Upload, Loader2, AlertCircle, CheckCircle2, Image as ImageIcon, Save, Tags, Calendar } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 
 const ManagePromises = () => {
@@ -8,8 +8,8 @@ const ManagePromises = () => {
   const [message, setMessage] = useState(null);
   const [uploading, setUploading] = useState(false);
   
-  // Show first 4 categories as main trackers
-  const mainTrackers = categories.slice(0, 4);
+  // Show all categories
+  const mainTrackers = categories;
   
   // Modals
   const [manageModal, setManageModal] = useState(false);
@@ -27,36 +27,32 @@ const ManagePromises = () => {
     title: '',
     description: '',
     status: 'Pending',
-    point_no: 0
+    progress: 0,
+    hero_image_url: '',
+    point_no: 0,
+    responsible_ministry: 'Administrative Office',
+    target_date: '',
+    tags: []
   });
+  const [newTag, setNewTag] = useState('');
+  const [promiseImagePreview, setPromiseImagePreview] = useState(null);
   const [editingPromise, setEditingPromise] = useState(null);
   const [expandedPromise, setExpandedPromise] = useState(null);
   const [promiseSaving, setPromiseSaving] = useState(false);
 
   // ============================================================================
-  // IMAGE UPLOAD HANDLER
+  // HANDLERS
   // ============================================================================
 
   const handleHeroImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setMessage({ type: 'error', text: 'Please select a valid image file' });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'Image must be less than 5MB' });
-      return;
-    }
-
     try {
       setUploading(true);
       const url = await uploadImage(file);
       setHeroImagePreview(url);
       setEditHeroData(prev => ({ ...prev, image_url: url }));
-      setMessage({ type: 'success', text: 'Image uploaded to Supabase!' });
+      setMessage({ type: 'success', text: 'Tracker image uploaded!' });
     } catch (err) {
       setMessage({ type: 'error', text: `Upload failed: ${err.message}` });
     } finally {
@@ -64,40 +60,63 @@ const ManagePromises = () => {
     }
   };
 
-  // ============================================================================
-  // PROMISE MANAGEMENT
-  // ============================================================================
+  const handlePromiseImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploading(true);
+      const url = await uploadImage(file);
+      setPromiseImagePreview(url);
+      if (editingPromise) {
+        setEditingPromise(prev => ({ ...prev, hero_image_url: url }));
+      } else {
+        setNewPromise(prev => ({ ...prev, hero_image_url: url }));
+      }
+      setMessage({ type: 'success', text: 'Promise image uploaded!' });
+    } catch (err) {
+      setMessage({ type: 'error', text: `Upload failed: ${err.message}` });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAddTag = (e) => {
+    if (e.key === 'Enter' && newTag.trim()) {
+      if (editingPromise) {
+        setEditingPromise(p => ({ ...p, tags: [...(p.tags || []), newTag.trim()] }));
+      } else {
+        setNewPromise(p => ({ ...p, tags: [...(p.tags || []), newTag.trim()] }));
+      }
+      setNewTag('');
+      e.preventDefault();
+    }
+  };
+
+  const removeTag = (tagToRemove) => {
+    if (editingPromise) {
+      setEditingPromise(p => ({ ...p, tags: p.tags.filter(t => t !== tagToRemove) }));
+    } else {
+      setNewPromise(p => ({ ...p, tags: p.tags.filter(t => t !== tagToRemove) }));
+    }
+  };
 
   const handleAddPromise = async () => {
     if (!selectedTracker || !newPromise.title.trim()) {
-      setMessage({ type: 'error', text: 'Promise title is required' });
+      setMessage({ type: 'error', text: 'Title is required' });
       return;
     }
 
     try {
       setPromiseSaving(true);
-      // Auto-generate point_no if not set
-      const pointNo = newPromise.point_no || trackerPromises.length + 1;
-      
-      await addPromise({
-        title: newPromise.title,
-        description: newPromise.description,
-        categoryId: selectedTracker.id,
-        status: newPromise.status,
-        point_no: pointNo,
-        ministry_responsible: 'Administrative Office', // Default
-        category: selectedTracker.name
+      const res = await addPromise({
+        ...newPromise,
+        categoryId: selectedTracker.id
       });
-      
-      setMessage({ type: 'success', text: 'Promise added to Supabase!' });
-      setNewPromise({ title: '', description: '', status: 'Pending', point_no: 0 });
+      setMessage({ type: 'success', text: 'Promise added successfully!' });
       setShowAddPromiseForm(false);
-      
-      // Refresh promises list
-      const updated = promises.filter(p => p.categoryId === selectedTracker.id);
-      setTrackerPromises(updated);
-      
-      setTimeout(() => setMessage(null), 2000);
+      setTrackerPromises(prev => [...prev, res]);
+      setNewPromise({ title: '', description: '', status: 'Pending', progress: 0, hero_image_url: '', point_no: trackerPromises.length + 2, responsible_ministry: 'Administrative Office', target_date: '', tags: [] });
+      setPromiseImagePreview(null);
     } catch (err) {
       setMessage({ type: 'error', text: `Failed: ${err.message}` });
     } finally {
@@ -105,39 +124,14 @@ const ManagePromises = () => {
     }
   };
 
-  const handleDeletePromise = async (promiseId) => {
-    if (!window.confirm('Delete this promise?')) return;
-
+  const handleSavePromiseEdit = async () => {
+    if (!editingPromise) return;
     try {
       setPromiseSaving(true);
-      await deletePromise(promiseId);
-      setMessage({ type: 'success', text: 'Promise deleted!' });
-      
-      // Refresh promises
-      const updated = trackerPromises.filter(p => p.id !== promiseId);
-      setTrackerPromises(updated);
-      
-      setTimeout(() => setMessage(null), 2000);
-    } catch (err) {
-      setMessage({ type: 'error', text: `Failed: ${err.message}` });
-    } finally {
-      setPromiseSaving(false);
-    }
-  };
-
-  const handleUpdatePromiseStatus = async (promiseId, newStatus) => {
-    try {
-      setPromiseSaving(true);
-      await updatePromise(promiseId, { status: newStatus });
-      
-      // Update local state
-      const updated = trackerPromises.map(p =>
-        p.id === promiseId ? { ...p, status: newStatus } : p
-      );
-      setTrackerPromises(updated);
-      
-      setMessage({ type: 'success', text: `Status updated to ${newStatus}!` });
-      setTimeout(() => setMessage(null), 1500);
+      await updatePromise(editingPromise.id, editingPromise);
+      setMessage({ type: 'success', text: 'Promise updated!' });
+      setTrackerPromises(prev => prev.map(p => p.id === editingPromise.id ? editingPromise : p));
+      setEditingPromise(null);
     } catch (err) {
       setMessage({ type: 'error', text: `Failed: ${err.message}` });
     } finally {
@@ -147,37 +141,20 @@ const ManagePromises = () => {
 
   const handleOpenManageModal = (tracker) => {
     setSelectedTracker(tracker);
-    setEditHeroData({
-      name: tracker.name,
-      description: tracker.description || '',
-      image_url: tracker.image_url || ''
-    });
+    setEditHeroData({ name: tracker.name, description: tracker.description || '', image_url: tracker.image_url || '' });
     setHeroImagePreview(tracker.image_url || null);
-    
-    // Get promises for this tracker (by categoryId)
-    const trackerPms = promises.filter(p => p.categoryId === tracker.id);
-    setTrackerPromises(trackerPms);
-    
+    const pms = promises.filter(p => (p.categoryId || p.category_id) === tracker.id);
+    setTrackerPromises(pms);
     setManageModal(true);
   };
 
   const handleSaveHeroSection = async () => {
-    if (!selectedTracker || !editHeroData.name.trim()) {
-      setMessage({ type: 'error', text: 'Tracker name is required' });
-      return;
-    }
-
     try {
       setEditingSaving(true);
-      await updateCategory(selectedTracker.id, {
-        name: editHeroData.name,
-        description: editHeroData.description,
-        image_url: editHeroData.image_url
-      });
-      setMessage({ type: 'success', text: 'Hero section saved to Supabase!' });
-      setTimeout(() => setMessage(null), 2000);
+      await updateCategory(selectedTracker.id, editHeroData);
+      setMessage({ type: 'success', text: 'Tracker updated!' });
     } catch (err) {
-      setMessage({ type: 'error', text: `Failed to save: ${err.message}` });
+      setMessage({ type: 'error', text: `Failed: ${err.message}` });
     } finally {
       setEditingSaving(false);
     }
@@ -189,349 +166,320 @@ const ManagePromises = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">💰 Manage Promises & Trackers</h1>
-          <p className="text-slate-500 mt-2">Manage {mainTrackers.length} trackers, their promises & hero sections (Supabase)</p>
+          <h1 className="text-3xl font-black text-slate-800 font-display">🗳️ Manage Balen-Tracker Content</h1>
+          <p className="text-slate-500 font-medium mt-1">Manage categories, promises, and their progress across {mainTrackers.length} divisions.</p>
         </div>
       </div>
 
-      {/* Messages */}
       {message && (
         <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`flex items-center gap-3 p-4 rounded-lg border ${
-            message.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              : 'bg-red-50 border-red-200 text-red-700'
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className={`p-4 rounded-2xl border flex items-center gap-3 font-bold ${
+            message.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
           }`}
         >
-          {message.type === 'success' ? (
-            <CheckCircle2 size={20} />
-          ) : (
-            <AlertCircle size={20} />
-          )}
-          <span className="font-medium">{message.text}</span>
+          {message.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          {message.text}
+          <button onClick={() => setMessage(null)} className="ml-auto opacity-50 hover:opacity-100"><X size={18} /></button>
         </motion.div>
       )}
 
-      {/* 3 Main Trackers Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mainTrackers.map((tracker, idx) => {
-          const trackerPms = promises.filter(p => p.categoryId === tracker.id);
-          const completed = trackerPms.filter(p => p.status === 'Completed').length;
-          const inProgress = trackerPms.filter(p => p.status === 'In Progress').length;
-          const pending = trackerPms.filter(p => p.status === 'Pending').length;
+      {/* Trackers Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {mainTrackers.map((tracker) => {
+          const pms = promises.filter(p => (p.categoryId || p.category_id) === tracker.id);
+          const completed = pms.filter(p => p.status === 'Completed').length;
+          const progress = pms.length > 0 ? Math.round((completed / pms.length) * 100) : 0;
 
           return (
             <motion.div
-              key={tracker.id}
-              layout
-              className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow group"
+              layout key={tracker.id}
+              className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden hover:shadow-premium transition-all group"
             >
-              {/* Tracker Image Hero */}
-              {tracker.image_url ? (
-                <div className="h-48 overflow-hidden bg-slate-100">
-                  <img 
-                    src={tracker.image_url} 
-                    alt={tracker.name} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-                  />
-                </div>
-              ) : (
-                <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                  <ImageIcon size={48} className="text-slate-300" />
-                </div>
-              )}
-
-              {/* Tracker Content */}
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-bold text-lg text-slate-800 flex-1">{tracker.name}</h3>
-                  <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">#{idx + 1}</span>
-                </div>
-                <p className="text-sm text-slate-600 mb-4 line-clamp-2">{tracker.description}</p>
-
-                {/* Promise Stats */}
-                <div className="grid grid-cols-3 gap-2 mb-6 text-center">
-                  <div className="bg-blue-50 rounded p-2">
-                    <p className="text-xs text-slate-600">Total</p>
-                    <p className="font-bold text-blue-600">{trackerPms.length}</p>
+              <div className="h-40 relative">
+                {tracker.image_url ? (
+                  <img src={tracker.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                  <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
+                    <ImageIcon size={48} />
                   </div>
-                  <div className="bg-green-50 rounded p-2">
-                    <p className="text-xs text-slate-600">Done</p>
-                    <p className="font-bold text-green-600">{completed}</p>
-                  </div>
-                  <div className="bg-amber-50 rounded p-2">
-                    <p className="text-xs text-slate-600">Progress</p>
-                    <p className="font-bold text-amber-600">{inProgress}</p>
-                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
+                <div className="absolute bottom-4 left-4 right-4">
+                   <h3 className="text-white font-black text-xl font-display drop-shadow-md">{tracker.name}</h3>
                 </div>
-
-                {/* Edit Button */}
-                <button
-                  onClick={() => handleOpenManageModal(tracker)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors font-bold"
-                >
-                  <Edit2 size={16} />
-                  Edit Tracker & Promises
-                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-slate-400">
+                   <span>Progress</span>
+                   <span className={progress === 100 ? 'text-emerald-500' : 'text-primary'}>{progress}%</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                   <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                   <span className="text-xs font-bold text-slate-500">{pms.length} Promises</span>
+                   <button
+                    onClick={() => handleOpenManageModal(tracker)}
+                    className="p-2 bg-slate-50 text-slate-800 rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                </div>
               </div>
             </motion.div>
           );
         })}
       </div>
 
-      {/* =================== EDIT TRACKER MODAL ================= */}
+      {/* Editor Modal */}
       <AnimatePresence>
         {manageModal && selectedTracker && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] overflow-y-auto"
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-[2.5rem] max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl"
             >
-              <div className="p-6 border-b border-slate-200 flex justify-between items-center sticky top-0 bg-white z-10">
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-[2.5rem]">
                 <div>
-                  <h2 className="text-2xl font-bold">✏️ Manage Tracker</h2>
-                  <p className="text-sm text-slate-500">{selectedTracker.name} • {trackerPromises.length} promises</p>
+                  <h2 className="text-2xl font-black text-slate-800 font-display">✏️ Manage Tracker: {selectedTracker.name}</h2>
+                  <p className="text-sm font-medium text-slate-500">{trackerPromises.length} Promises in this category</p>
                 </div>
-                <button onClick={() => setManageModal(false)} className="hover:bg-slate-100 p-1 rounded">
-                  <X size={24} />
+                <button onClick={() => setManageModal(false)} className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center hover:bg-slate-50">
+                  <X size={20} />
                 </button>
               </div>
 
-              <div className="p-6 space-y-6">
-                {/* HERO SECTION TAB */}
-                <div className="border-b pb-6">
-                  <h3 className="text-lg font-bold mb-4">🎨 Edit Hero Section</h3>
-
-                  {/* Hero Image Preview & Upload */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-bold mb-3">📸 Hero Image</label>
-                    {heroImagePreview ? (
-                      <div className="relative mb-4">
-                        <img src={heroImagePreview} alt="preview" className="w-full h-48 object-cover rounded-lg" />
-                        <button
-                          onClick={() => {
-                            setHeroImagePreview(null);
-                            setEditHeroData(prev => ({ ...prev, image_url: '' }));
-                          }}
-                          className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded hover:bg-red-600"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition">
-                        <div className="flex flex-col items-center">
-                          <ImageIcon size={32} className="text-slate-400 mb-2" />
-                          <span className="text-sm text-slate-600">Click to upload hero image</span>
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-12">
+                
+                {/* Hero Section Edit */}
+                <section className="space-y-6">
+                  <h3 className="text-xs font-black text-primary uppercase tracking-widest">Section Branding</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Display Name</label>
+                          <input 
+                            type="text" value={editHeroData.name} 
+                            onChange={e => setEditHeroData({...editHeroData, name: e.target.value})}
+                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-bold"
+                          />
                         </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleHeroImageUpload}
-                          disabled={uploading}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Description</label>
+                          <textarea 
+                            rows="3" value={editHeroData.description} 
+                            onChange={e => setEditHeroData({...editHeroData, description: e.target.value})}
+                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-primary/5 focus:border-primary transition-all font-medium"
+                          />
+                        </div>
+                        <button 
+                          onClick={handleSaveHeroSection} disabled={editingSaving}
+                          className="w-full py-4 bg-slate-800 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-black transition-all"
+                        >
+                          {editingSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                          Save Header Branding
+                        </button>
+                     </div>
+                     <div className="space-y-4">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Header Image</label>
+                        <div className="relative h-56 rounded-2xl overflow-hidden border border-slate-200 group">
+                           {heroImagePreview ? (
+                             <>
+                               <img src={heroImagePreview} className="w-full h-full object-cover" alt="" />
+                               <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <label className="cursor-pointer bg-white text-slate-800 px-6 py-2 rounded-full font-bold flex items-center gap-2">
+                                     <Upload size={16} /> Change
+                                     <input type="file" className="hidden" onChange={handleHeroImageUpload} />
+                                  </label>
+                               </div>
+                             </>
+                           ) : (
+                             <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                                <ImageIcon size={40} className="text-slate-300 mb-2" />
+                                <span className="text-xs font-bold text-slate-400">Upload Header Image</span>
+                                <input type="file" className="hidden" onChange={handleHeroImageUpload} />
+                             </label>
+                           )}
+                           {uploading && (
+                             <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                                <Loader2 size={32} className="animate-spin text-primary" />
+                             </div>
+                           )}
+                        </div>
+                     </div>
                   </div>
+                </section>
 
-                  {/* Title & Description */}
-                  <div className="space-y-3">
+                <hr className="border-slate-100" />
+
+                {/* Promises Management */}
+                <section className="space-y-6">
+                  <div className="flex justify-between items-end">
                     <div>
-                      <label className="block text-sm font-bold mb-2">📝 Tracker Title</label>
-                      <input
-                        type="text"
-                        value={editHeroData.name}
-                        onChange={e => setEditHeroData(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-800 focus:border-transparent"
-                      />
+                      <h3 className="text-xs font-black text-primary uppercase tracking-widest">Promises Registry</h3>
+                      <p className="text-sm font-medium text-slate-400 mt-1">Manage individual commitments in this group.</p>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-bold mb-2">📄 Description</label>
-                      <textarea
-                        value={editHeroData.description}
-                        onChange={e => setEditHeroData(prev => ({ ...prev, description: e.target.value }))}
-                        rows="3"
-                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-800 focus:border-transparent resize-none"
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleSaveHeroSection}
-                      disabled={editingSaving || uploading || operationLoading}
-                      className="w-full px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 disabled:opacity-50 flex items-center justify-center gap-2 font-bold"
-                    >
-                      {editingSaving || uploading || operationLoading ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Save size={16} />
-                      )}
-                      Save Hero Section
-                    </button>
-                  </div>
-                </div>
-
-                {/* PROMISES MANAGEMENT TAB */}
-                <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-bold">📋 Manage Promises ({trackerPromises.length})</h3>
-                    <button
-                      onClick={() => setShowAddPromiseForm(!showAddPromiseForm)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm"
-                    >
-                      <Plus size={16} />
-                      Add Promise
-                    </button>
-                  </div>
-
-                  {/* Add Promise Form */}
-                  {showAddPromiseForm && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-4 space-y-3"
-                    >
-                      <input
-                        type="text"
-                        placeholder="Promise title (e.g., Build 100 new schools)"
-                        value={newPromise.title}
-                        onChange={e => setNewPromise(prev => ({ ...prev, title: e.target.value }))}
-                        className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                      />
-
-                      <textarea
-                        placeholder="Promise description & details"
-                        rows="2"
-                        value={newPromise.description}
-                        onChange={e => setNewPromise(prev => ({ ...prev, description: e.target.value }))}
-                        className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent resize-none"
-                      />
-
-                      <select
-                        value={newPromise.status}
-                        onChange={e => setNewPromise(prev => ({ ...prev, status: e.target.value }))}
-                        className="w-full px-3 py-2 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                    {!showAddPromiseForm && (
+                      <button 
+                        onClick={() => setShowAddPromiseForm(true)}
+                        className="bg-primary text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:shadow-primary/20 transition-all"
                       >
-                        <option value="Pending">Pending</option>
-                        <option value="Planning">Planning</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Completed">Completed</option>
-                      </select>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowAddPromiseForm(false)}
-                          className="flex-1 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-100 font-medium"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleAddPromise}
-                          disabled={promiseSaving || operationLoading}
-                          className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-bold flex items-center justify-center gap-2"
-                        >
-                          {promiseSaving || operationLoading ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            <Plus size={14} />
-                          )}
-                          Add to Supabase
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Promises List */}
-                  <div className="space-y-2">
-                    {trackerPromises.length === 0 ? (
-                      <p className="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg text-center">
-                        No promises yet. Click "Add Promise" to create one!
-                      </p>
-                    ) : (
-                      trackerPromises.map(promise => (
-                        <motion.div
-                          key={promise.id}
-                          layout
-                          className="border border-slate-200 rounded-lg overflow-hidden hover:shadow-md transition"
-                        >
-                          <button
-                            onClick={() => setExpandedPromise(expandedPromise === promise.id ? null : promise.id)}
-                            className="w-full p-3 flex justify-between items-center hover:bg-slate-50 transition"
-                          >
-                            <div className="text-left flex-1 min-w-0">
-                              <p className="font-semibold text-slate-800 truncate">{promise.title}</p>
-                              <p className="text-xs text-slate-600">
-                                {promise.status === 'Completed' && '✓ Completed'}
-                                {promise.status === 'In Progress' && '⏳ In Progress'}
-                                {promise.status === 'Planning' && '📋 Planning'}
-                                {promise.status === 'Pending' && '⏸️ Pending'}
-                              </p>
-                            </div>
-                            <motion.div
-                              animate={{ rotate: expandedPromise === promise.id ? 180 : 0 }}
-                            >
-                              <ChevronDown size={18} className="text-slate-600" />
-                            </motion.div>
-                          </button>
-
-                          {/* Promise Details */}
-                          {expandedPromise === promise.id && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="border-t border-slate-200 bg-slate-50 p-3 space-y-3"
-                            >
-                              <p className="text-sm text-slate-700">{promise.description}</p>
-
-                              <div className="flex gap-2">
-                                <select
-                                  value={promise.status}
-                                  onChange={e => handleUpdatePromiseStatus(promise.id, e.target.value)}
-                                  disabled={promiseSaving}
-                                  className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent disabled:opacity-50 font-medium"
-                                >
-                                  <option value="Pending">Pending</option>
-                                  <option value="Planning">Planning</option>
-                                  <option value="In Progress">In Progress</option>
-                                  <option value="Completed">Completed</option>
-                                </select>
-
-                                <button
-                                  onClick={() => handleDeletePromise(promise.id)}
-                                  disabled={promiseSaving}
-                                  className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50 font-bold flex items-center gap-1"
-                                >
-                                  <Trash2 size={14} />
-                                  Delete
-                                </button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </motion.div>
-                      ))
+                        <Plus size={18} /> New Promise
+                      </button>
                     )}
                   </div>
-                </div>
+
+                  {/* Add New Promise Form */}
+                  <AnimatePresence>
+                    {showAddPromiseForm && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-primary/5 rounded-[2rem] border border-primary/20 p-8 space-y-6">
+                         <div className="flex justify-between items-center">
+                           <h4 className="font-bold text-primary flex items-center gap-2"><Plus size={18} /> Create New Commitment</h4>
+                           <button onClick={() => setShowAddPromiseForm(false)} className="text-slate-400 hover:text-red-500"><X size={20} /></button>
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-4">
+                               <input type="text" placeholder="Promise Title" className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-2xl font-bold" value={newPromise.title} onChange={e => setNewPromise({...newPromise, title: e.target.value})} />
+                               <textarea rows="4" placeholder="Full Description" className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-2xl font-medium" value={newPromise.description} onChange={e => setNewPromise({...newPromise, description: e.target.value})} />
+                               <div className="flex gap-2 flex-wrap">
+                                  {newPromise.tags.map(t => (
+                                    <span key={t} className="px-3 py-1 bg-white border border-primary/20 text-primary text-[10px] font-black uppercase rounded-full flex items-center gap-2">
+                                       {t} <button onClick={() => removeTag(t)}><X size={10} /></button>
+                                    </span>
+                                  ))}
+                                  <input type="text" placeholder="Add tag + Enter" className="flex-1 min-w-[120px] bg-transparent outline-none text-[10px] font-bold" value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={handleAddTag} />
+                               </div>
+                            </div>
+                            <div className="space-y-4">
+                               <div className="flex gap-4">
+                                  <select className="flex-1 px-5 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-xs" value={newPromise.status} onChange={e => setNewPromise({...newPromise, status: e.target.value})}>
+                                     <option value="Pending">Pending</option>
+                                     <option value="Planning">Planning</option>
+                                     <option value="In Progress">In Progress</option>
+                                     <option value="Completed">Completed</option>
+                                  </select>
+                                  <div className="w-32 px-5 py-3 bg-white border border-slate-200 rounded-2xl flex items-center gap-2">
+                                     <span className="text-[10px] font-black text-slate-400">%</span>
+                                     <input type="number" className="w-full bg-transparent outline-none font-bold text-xs" value={newPromise.progress} onChange={e => setNewPromise({...newPromise, progress: e.target.value})} />
+                                  </div>
+                               </div>
+                               <input type="text" placeholder="Responsible Ministry" className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-2xl font-bold" value={newPromise.responsible_ministry} onChange={e => setNewPromise({...newPromise, responsible_ministry: e.target.value})} />
+                               <div className="flex items-center gap-2 px-5 py-3.5 bg-white border border-slate-200 rounded-2xl">
+                                  <Calendar size={18} className="text-slate-400" />
+                                  <input type="date" className="w-full bg-transparent outline-none font-bold" value={newPromise.target_date} onChange={e => setNewPromise({...newPromise, target_date: e.target.value})} />
+                               </div>
+                               <div className="h-32 bg-white border border-dashed border-primary/30 rounded-2xl flex items-center justify-center relative overflow-hidden">
+                                  {promiseImagePreview ? <img src={promiseImagePreview} className="w-full h-full object-cover" /> : (
+                                    <label className="flex flex-col items-center cursor-pointer text-primary/50">
+                                       <ImageIcon size={24} /> <span className="text-[10px] font-bold uppercase mt-1">Upload Hero Image</span>
+                                       <input type="file" className="hidden" onChange={handlePromiseImageUpload} />
+                                    </label>
+                                  )}
+                               </div>
+                            </div>
+                         </div>
+                         <button onClick={handleAddPromise} disabled={promiseSaving} className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-premium flex items-center justify-center gap-2 hover:scale-[1.02] transition-all">
+                            {promiseSaving ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+                            Save Promise to Registry
+                         </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* List of Existing Promises */}
+                  <div className="space-y-4">
+                    {trackerPromises.map((promise) => {
+                      const isEditing = editingPromise?.id === promise.id;
+                      const isExpanded = expandedPromise === promise.id;
+
+                      return (
+                        <div key={promise.id} className={`border rounded-[2rem] overflow-hidden transition-all ${isEditing ? 'border-primary ring-4 ring-primary/5' : 'border-slate-100 hover:border-slate-200'}`}>
+                           <div className={`p-6 flex items-center gap-6 ${isEditing ? 'bg-primary/5' : isExpanded ? 'bg-slate-50' : 'bg-white'}`}>
+                              <div className="w-24 h-16 bg-slate-100 rounded-xl overflow-hidden flex-shrink-0">
+                                 {promise.hero_image_url ? <img src={promise.hero_image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={20} /></div>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                 {isEditing ? (
+                                   <input type="text" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 font-bold" value={editingPromise.title} onChange={e => setEditingPromise({...editingPromise, title: e.target.value})} />
+                                 ) : (
+                                   <h5 className="font-bold text-slate-800 line-clamp-1">{promise.title}</h5>
+                                 )}
+                                 <div className="flex items-center gap-3 mt-1.5">
+                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${promise.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>{promise.status}</span>
+                                    <span className="text-[10px] font-bold text-slate-400">{promise.progress}% Complete</span>
+                                 </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 {isEditing ? (
+                                   <>
+                                      <button onClick={handleSavePromiseEdit} className="p-2 bg-primary text-white rounded-lg"><Save size={18} /></button>
+                                      <button onClick={() => setEditingPromise(null)} className="p-2 bg-slate-200 text-slate-600 rounded-lg"><X size={18} /></button>
+                                   </>
+                                 ) : (
+                                   <>
+                                      <button onClick={() => setEditingPromise({...promise})} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg"><Edit2 size={18} /></button>
+                                      <button onClick={() => setExpandedPromise(isExpanded ? null : promise.id)} className={`p-2 transition-transform ${isExpanded ? 'rotate-180 text-primary' : 'text-slate-400'}`}><ChevronDown size={18} /></button>
+                                   </>
+                                 )}
+                              </div>
+                           </div>
+                           
+                           {/* Expanded Detail / Quick Edit */}
+                           <AnimatePresence>
+                              {isExpanded && !isEditing && (
+                                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="bg-slate-50 border-t border-slate-100 p-8 space-y-6">
+                                   <div className="grid grid-cols-2 gap-8">
+                                      <div className="space-y-4">
+                                         <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Ministry</p>
+                                            <p className="text-sm font-bold text-slate-800">{promise.responsible_ministry}</p>
+                                         </div>
+                                         <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Description</p>
+                                            <p className="text-xs font-medium text-slate-600 leading-relaxed">{promise.description}</p>
+                                         </div>
+                                      </div>
+                                      <div className="space-y-4">
+                                         <div className="flex justify-between items-center mb-1">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Rapid Progress Edit</p>
+                                            <span className="text-sm font-black text-primary">{promise.progress}%</span>
+                                         </div>
+                                         <input type="range" className="w-full accent-primary" value={promise.progress} onChange={e => {
+                                            const updated = {...promise, progress: Number(e.target.value)};
+                                            setTrackerPromises(prev => prev.map(p => p.id === promise.id ? updated : p));
+                                            updatePromise(promise.id, { progress: Number(e.target.value) });
+                                         }} />
+                                         <div className="flex gap-2 pt-2">
+                                            {['Pending', 'Planning', 'In Progress', 'Completed'].map(s => (
+                                              <button 
+                                                key={s} onClick={() => {
+                                                  const updated = {...promise, status: s};
+                                                  setTrackerPromises(prev => prev.map(p => p.id === promise.id ? updated : p));
+                                                  updatePromise(promise.id, { status: s });
+                                                }}
+                                                className={`flex-1 py-2 text-[9px] font-black uppercase rounded-lg border transition-all ${promise.status === s ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400'}`}
+                                              >
+                                                {s}
+                                              </button>
+                                            ))}
+                                         </div>
+                                      </div>
+                                   </div>
+                                </motion.div>
+                              )}
+                           </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
               </div>
 
-              {/* Footer */}
-              <div className="p-6 border-t border-slate-200 bg-slate-50 flex gap-2 sticky bottom-0">
-                <button
-                  onClick={() => setManageModal(false)}
-                  className="flex-1 px-4 py-3 border border-slate-300 rounded-lg hover:bg-white font-bold transition"
-                >
-                  Close
-                </button>
+              <div className="p-8 border-t border-slate-100 bg-slate-50 flex gap-4 rounded-b-[2.5rem]">
+                  <button onClick={() => setManageModal(false)} className="flex-1 py-4 bg-white border border-slate-200 rounded-2xl font-bold hover:bg-slate-50">Close Manager</button>
               </div>
             </motion.div>
           </div>

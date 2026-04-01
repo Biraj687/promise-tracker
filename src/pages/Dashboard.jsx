@@ -24,8 +24,9 @@ export default function Dashboard() {
   const [promises, setPromises] = useState(promisesData);
   const [adminAttempt, setAdminAttempt] = useState('');
 
-  // Correct admin password (in production, verify on backend)
-  const ADMIN_PASSWORD = 'admin2024';
+  // IMPORTANT: In production, this should be verified on the backend
+  // For demo purposes only - use environment variable in production
+  const ADMIN_PASSWORD = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'demo_admin_2024';
 
   useEffect(() => {
     if (darkMode) {

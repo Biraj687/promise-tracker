@@ -243,32 +243,77 @@ export const DataProvider = ({ children }) => {
 
       if (fetchError) throw new Error(`Failed to fetch promises: ${fetchError.message}`);
 
-      setPromises(data || []);
+      // Map snake_case from DB to camelCase if needed
+      const mappedData = (data || []).map(p => ({
+        ...p,
+        categoryId: p.category_id || p.categoryId,
+      }));
+
+      setPromises(mappedData);
       setError(null);
-      return data;
+      return mappedData;
     } catch (err) {
       console.warn("⚠️ Promise fetch warning:", err.message);
-      console.log("💡 Database might not be set up. Run: SUPABASE_SETUP.sql in Supabase");
       setPromises([]);
-      // Don't throw - allow app to continue
       return [];
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchPromiseById = async (id) => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('promises')
+        .select(`
+          *,
+          categories (
+             id,
+             name,
+             icon,
+             color
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      
+      return {
+        ...data,
+        categoryId: data.category_id || data.categoryId
+      };
+    } catch (err) {
+      console.error("fetchPromiseById failed:", err);
+      return null;
+    }
+  };
+
   const addPromise = async (promiseData) => {
     try {
+      // Map JS to DB format
+      const dbData = {
+        title: promiseData.title,
+        description: promiseData.description,
+        status: promiseData.status || 'Pending',
+        progress: promiseData.progress || 0,
+        hero_image_url: promiseData.hero_image_url || null,
+        point_no: promiseData.point_no || 0,
+        category_id: promiseData.categoryId || promiseData.category_id,
+        responsible_ministry: promiseData.responsible_ministry || 'Administrative Office',
+      };
+
       const { data, error: insertError } = await supabase
         .from('promises')
-        .insert([promiseData])
+        .insert([dbData])
         .select();
 
       if (insertError) throw new Error(`Failed to add promise: ${insertError.message}`);
 
       if (data && data.length > 0) {
-        setPromises(prev => [...prev, data[0]]);
-        return data[0];
+        const newData = { ...data[0], categoryId: data[0].category_id };
+        setPromises(prev => [...prev, newData]);
+        return newData;
       }
       throw new Error('No data returned from insert');
     } catch (err) {
@@ -279,9 +324,16 @@ export const DataProvider = ({ children }) => {
 
   const updatePromise = async (id, updatedData) => {
     try {
+      // Map JS to DB format
+      const dbUpdates = { ...updatedData };
+      if (dbUpdates.categoryId) {
+        dbUpdates.category_id = dbUpdates.categoryId;
+        delete dbUpdates.categoryId;
+      }
+
       const { error: updateError } = await supabase
         .from('promises')
-        .update(updatedData)
+        .update(dbUpdates)
         .eq('id', id);
 
       if (updateError) throw new Error(`Failed to update promise: ${updateError.message}`);
@@ -289,7 +341,7 @@ export const DataProvider = ({ children }) => {
       setPromises(prev =>
         prev.map(p =>
           p.id === id
-            ? { ...p, ...updatedData, updatedAt: new Date().toISOString().split('T')[0] }
+            ? { ...p, ...updatedData, updatedAt: new Date().toISOString() }
             : p
         )
       );
@@ -349,11 +401,11 @@ export const DataProvider = ({ children }) => {
             image_url: newsData.image_url,
             source_url: newsData.source_url,
             source_name: newsData.source_name,
-            category_id: newsData.category_id,
-            promise_id: newsData.promise_id,
+            category_id: newsData.category_id || newsData.categoryId,
+            promise_id: newsData.promise_id || newsData.promiseId,
             news_type: newsData.news_type || 'update',
             thumbnail_url: newsData.thumbnail_url,
-            is_published: newsData.is_published || false
+            is_published: newsData.is_published ?? true
           }
         ])
         .select();
@@ -413,11 +465,11 @@ export const DataProvider = ({ children }) => {
   };
 
   const getNewsByCategory = (categoryId) => {
-    return newsUpdates.filter(n => n.category_id === Number(categoryId));
+    return newsUpdates.filter(n => (n.category_id || n.categoryId) === Number(categoryId));
   };
 
   const getNewsByPromise = (promiseId) => {
-    return newsUpdates.filter(n => n.promise_id === Number(promiseId));
+    return newsUpdates.filter(n => (n.promise_id || n.promiseId) === Number(promiseId));
   };
 
   // ============================================================================
@@ -510,7 +562,7 @@ export const DataProvider = ({ children }) => {
   // ============================================================================
 
   const getPromisesByCategory = (categoryId) => {
-    return promises.filter(p => p.categoryId === Number(categoryId));
+    return promises.filter(p => (p.categoryId || p.category_id) === Number(categoryId));
   };
 
   const getStats = () => {
@@ -549,6 +601,7 @@ export const DataProvider = ({ children }) => {
     updatePromise,
     deletePromise,
     fetchPromises,
+    fetchPromiseById,
     getPromisesByCategory,
     // News operations
     addNewsUpdate,

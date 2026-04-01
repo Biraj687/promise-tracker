@@ -13,8 +13,10 @@ import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ManageCategories from './pages/admin/ManageCategories';
 import ManagePromises from './pages/admin/ManagePromises';
+import ManageNews from './pages/admin/ManageNews';
 import ManageUsers from './pages/admin/ManageUsers';
 import ContentManager from './pages/admin/ContentManager';
+import PromiseDetail from './pages/PromiseDetail';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
@@ -47,6 +49,7 @@ const AppRoutes = () => {
           <Route path="/balen-tracker" element={<MainLayout><BalenTracker /></MainLayout>} />
           <Route path="/tracker" element={<MainLayout><Tracker /></MainLayout>} />
           <Route path="/category/:id" element={<MainLayout><Tracker /></MainLayout>} />
+          <Route path="/promise/:id" element={<MainLayout><PromiseDetail /></MainLayout>} />
           
           {/* Automatically redirect old legacy Dashboard links to Admin */}
           <Route path="/dashboard" element={<Navigate to="/admin" replace />} />
@@ -60,6 +63,7 @@ const AppRoutes = () => {
             <Route path="categories" element={<ManageCategories />} />
             <Route path="promises" element={<ManagePromises />} />
             <Route path="content" element={<ContentManager />} />
+            <Route path="news" element={<ManageNews />} />
             <Route path="users" element={<ManageUsers />} />
           </Route>
         </Routes>
