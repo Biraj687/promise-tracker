@@ -18,97 +18,13 @@ export const DataProvider = ({ children }) => {
   const [operationLoading, setOperationLoading] = useState(false);
   const [lastUploadedImage, setLastUploadedImage] = useState(null);
 
-  // Initialize data on mount
-  useEffect(() => {
-    const initializeData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Try to fetch categories, continue if fails
-        try {
-          await fetchCategories();
-        } catch (err) {
-          console.warn("⚠️ Failed to fetch categories:", err.message);
-          setCategories([]); // Allow app to continue with empty categories
-        }
-        
-        // Try to fetch promises, continue if fails
-        try {
-          await fetchPromises();
-        } catch (err) {
-          console.warn("⚠️ Failed to fetch promises:", err.message);
-          setPromises([]); // Allow app to continue with empty promises
-        }
-
-        // Try to fetch news updates, continue if fails
-        try {
-          await fetchNewsUpdates();
-        } catch (err) {
-          console.warn("⚠️ Failed to fetch news updates:", err.message);
-          setNewsUpdates([]); // Allow app to continue with empty news
-        }
-
-        // Try to fetch CMS content, continue if fails
-        try {
-          await fetchCmsContent();
-        } catch (err) {
-          console.warn("⚠️ Failed to fetch CMS content:", err.message);
-          setCmsContent({}); // Allow app to continue with empty CMS
-        }
-      } catch (err) {
-        console.error("Initialization error (non-critical):", err);
-        // Don't set error - allow app to continue
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeData();
-
-    // ========== REAL-TIME SUBSCRIPTIONS ==========
-    // Subscribe to categories table changes (insert, update, delete)
-    const categoriesSubscription = supabase
-      .channel('categories-channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'categories' },
-        (payload) => {
-          console.log('📢 Categories changed:', payload);
-          // Refresh categories when any change happens
-          fetchCategories().catch(err => console.warn('Failed to refresh categories:', err));
-        }
-      )
-      .subscribe();
-
-    // Subscribe to promises table changes
-    const promisesSubscription = supabase
-      .channel('promises-channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'promises' },
-        (payload) => {
-          console.log('📢 Promises changed:', payload);
-          // Refresh promises when any change happens
-          fetchPromises().catch(err => console.warn('Failed to refresh promises:', err));
-        }
-      )
-      .subscribe();
-
-    // Cleanup subscriptions on unmount
-    return () => {
-      supabase.removeChannel(categoriesSubscription);
-      supabase.removeChannel(promisesSubscription);
-    };
-  }, []);
-
   // ============================================================================
-  // CATEGORY OPERATIONS - FETCH FROM SUPABASE
+  // FETCH FUNCTIONS - Define early for use in effects
   // ============================================================================
 
+  // Fetch categories from Supabase
   const fetchCategories = async () => {
     try {
-      // Try fetching with all columns, fallback to basic columns if some don't exist
       const { data, error: fetchError } = await supabase
         .from('categories')
         .select('id, name, description, image_url, parent_id, display_order, color, icon, created_at, created_by')
@@ -118,7 +34,6 @@ export const DataProvider = ({ children }) => {
 
       if (fetchError) throw new Error(`Failed to fetch categories: ${fetchError.message}`);
 
-      // Map data to include defaults if fields missing
       const categoriesWithDefaults = (data || []).map(cat => ({
         ...cat,
         icon: cat.icon || 'Layers',
@@ -128,15 +43,127 @@ export const DataProvider = ({ children }) => {
         display_order: cat.display_order || 0
       }));
 
+      console.log('✅ Categories fetched:', categoriesWithDefaults.length);
       setCategories(categoriesWithDefaults);
       setError(null);
     } catch (err) {
       console.error("Category fetch failed:", err);
-      console.log("⚠️ Continuing with empty categories - Run SQL migration: SUPABASE_DASHBOARD_MIGRATION.sql");
       setCategories([]);
-      // Don't throw - allow app to continue
     }
   };
+
+  // Fetch promises from Supabase
+  const fetchPromises = async () => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('promises')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(PROMISES_PAGE_SIZE);
+
+      if (fetchError) throw new Error(`Failed to fetch promises: ${fetchError.message}`);
+
+      console.log('✅ Promises fetched:', (data || []).length);
+      setPromises(data || []);
+      setError(null);
+    } catch (err) {
+      console.warn("Promise fetch failed:", err.message);
+      setPromises([]);
+    }
+  };
+
+  // Initialization Effect
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        await fetchCategories();
+        await fetchPromises();
+
+        // Try to fetch news updates, continue if fails
+        try {
+          await fetchNewsUpdates();
+        } catch (err) {
+          console.warn("⚠️ Failed to fetch news updates:", err.message);
+          setNewsUpdates([]);
+        }
+
+        // Try to fetch CMS content, continue if fails
+        try {
+          await fetchCmsContent();
+        } catch (err) {
+          console.warn("⚠️ Failed to fetch CMS content:", err.message);
+          setCmsContent({});
+        }
+      } catch (err) {
+        console.error("Initialization error (non-critical):", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeData();
+  }, []);
+
+  // Real-time Subscriptions Effect
+  useEffect(() => {
+    console.log('🔔 Setting up real-time subscriptions...');
+
+    // Subscribe to categories table changes
+    const categoriesSubscription = supabase
+      .channel('public:categories')
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'categories' },
+        (payload) => {
+          console.log('🗑️ Category deleted:', payload.old);
+          fetchCategories();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'categories' },
+        (payload) => {
+          console.log('➕ Category created:', payload.new);
+          fetchCategories();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'categories' },
+        (payload) => {
+          console.log('✏️ Category updated:', payload.new);
+          fetchCategories();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to promises table changes
+    const promisesSubscription = supabase
+      .channel('public:promises')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'promises' },
+        (payload) => {
+          console.log('📢 Promise changed:', payload);
+          fetchPromises();
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions
+    return () => {
+      console.log('🔕 Cleaning up subscriptions...');
+      supabase.removeChannel(categoriesSubscription);
+      supabase.removeChannel(promisesSubscription);
+    };
+  }, []);
+
+  // ============================================================================
+  // CATEGORY OPERATIONS - ADD, UPDATE, DELETE
+  // ============================================================================
 
   const addCategory = async (categoryData) => {
     try {
@@ -361,33 +388,8 @@ export const DataProvider = ({ children }) => {
   };
 
   // ============================================================================
-  // PROMISE OPERATIONS - FETCH WITH PAGINATION
+  // PROMISE OPERATIONS - ADD, UPDATE, DELETE
   // ============================================================================
-
-  const fetchPromises = async (pageStart = 0) => {
-    try {
-      setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from('promises')
-        .select('*', { count: 'exact' })
-        .order('point_no', { ascending: true })
-        .range(pageStart, pageStart + PROMISES_PAGE_SIZE - 1);
-
-      if (fetchError) throw new Error(`Failed to fetch promises: ${fetchError.message}`);
-
-      setPromises(data || []);
-      setError(null);
-      return data;
-    } catch (err) {
-      console.warn("⚠️ Promise fetch warning:", err.message);
-      console.log("💡 Database might not be set up. Run: SUPABASE_SETUP.sql in Supabase");
-      setPromises([]);
-      // Don't throw - allow app to continue
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const addPromise = async (promiseData) => {
     try {
