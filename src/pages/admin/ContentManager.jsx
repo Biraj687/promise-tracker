@@ -1,32 +1,47 @@
 import React, { useState, useEffect } from 'react';
+import { useConfig } from '../../context/ConfigContext';
 import { useData } from '../../context/DataContext';
-import { Save, AlertCircle, CheckCircle2, Upload, Loader2 } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle2, Upload, Image as ImageIcon } from 'lucide-react';
 
 const ContentManager = () => {
-  const { cmsContent, saveCmsContent, uploadImage, operationLoading } = useData();
+  const { config, updateConfigSection } = useConfig();
+  const { uploadImage } = useData();
   const [activeTab, setActiveTab] = useState('hero');
   const [message, setMessage] = useState(null);
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [heroImagePreview, setHeroImagePreview] = useState(null);
 
   const tabs = [
-    { id: 'hero', label: '🎯 Hero Section' },
-    { id: 'header', label: '📝 Header' },
+    { id: 'hero', label: '🎯 Homepage Hero Section' },
     { id: 'footer', label: '👣 Footer' },
-    { id: 'general', label: '⚙️ General Settings' },
   ];
 
-  // Initialize form with CMS data
+  // Initialize form with config data
   useEffect(() => {
-    if (cmsContent) {
-      setFormData(cmsContent);
-      if (cmsContent.hero_image_url) {
-        setHeroImagePreview(cmsContent.hero_image_url);
+    if (config) {
+      if (activeTab === 'hero') {
+        setFormData({
+          title1: config.balenHero?.title1 || '',
+          title2: config.balenHero?.title2 || '',
+          title3: config.balenHero?.title3 || '',
+          description: config.balenHero?.description || '',
+          badge: config.balenHero?.badge || '',
+          startButton: config.balenHero?.startButton || '',
+          howItWorksButton: config.balenHero?.howItWorksButton || '',
+          heroImageUrl: config.balenHero?.heroImageUrl || '',
+        });
+        setHeroImagePreview(config.balenHero?.heroImageUrl);
+      } else if (activeTab === 'footer') {
+        setFormData({
+          title: config.footer?.title || '',
+          description: config.footer?.description || '',
+          copyright: config.footer?.copyright || '',
+        });
       }
     }
-  }, [cmsContent]);
+  }, [config, activeTab]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
@@ -39,30 +54,33 @@ const ContentManager = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setMessage({ type: 'error', text: 'Please select a valid image file' });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'Image size must be less than 5MB' });
-      return;
-    }
-
     try {
-      setUploading(true);
-      const url = await uploadImage(file);
-      setHeroImagePreview(url);
-      setFormData(prev => ({
-        ...prev,
-        hero_image_url: url
-      }));
-      setMessage({ type: 'success', text: 'Image uploaded successfully!' });
-      setTimeout(() => setMessage(null), 2000);
+      setUploadingImage(true);
+      setMessage(null);
+
+      // Upload to Supabase Storage
+      const result = await uploadImage(file, 'hero');
+      
+      if (result.success && result.url) {
+        setHeroImagePreview(result.url);
+        setFormData(prev => ({
+          ...prev,
+          heroImageUrl: result.url
+        }));
+        setMessage({
+          type: 'success',
+          text: 'Hero image uploaded successfully!'
+        });
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
     } catch (err) {
-      setMessage({ type: 'error', text: `Upload failed: ${err.message}` });
+      setMessage({
+        type: 'error',
+        text: `Upload failed: ${err.message}`
+      });
     } finally {
-      setUploading(false);
+      setUploadingImage(false);
     }
   };
 
@@ -70,282 +88,226 @@ const ContentManager = () => {
     try {
       setLoading(true);
       setMessage(null);
-      
-      // Map form fields to cms_content table fields
-      const updates = {
-        hero_title: formData.hero_title || formData.title,
-        hero_subtitle: formData.hero_subtitle || formData.subtitle,
-        hero_cta_text: formData.hero_cta_text || formData.cta_text,
-        hero_image_url: formData.hero_image_url,
-        header_logo_text: formData.header_logo_text || formData.logo_text,
-        header_nav_links: formData.header_nav_links || formData.nav_links,
-        header_description: formData.header_description || formData.description,
-        footer_text: formData.footer_text || formData.text,
-        footer_copyright: formData.footer_copyright || formData.copyright,
-        footer_email: formData.footer_email || formData.email,
-        site_name: formData.site_name,
-        meta_description: formData.meta_description,
-        timezone: formData.timezone || 'Asia/Kathmandu',
-        maintenance_mode: formData.maintenance_mode || false
-      };
 
-      await saveCmsContent(activeTab, updates);
-      setMessage({ type: 'success', text: 'Changes saved to Supabase successfully!' });
-      setTimeout(() => setMessage(null), 3000);
+      if (activeTab === 'hero') {
+        await updateConfigSection('balenHero', {
+          title1: formData.title1,
+          title2: formData.title2,
+          title3: formData.title3,
+          description: formData.description,
+          badge: formData.badge,
+          startButton: formData.startButton,
+          howItWorksButton: formData.howItWorksButton,
+          heroImageUrl: formData.heroImageUrl,
+        });
+        setMessage({
+          type: 'success',
+          text: '✅ Hero section updated! Changes visible on homepage NOW.'
+        });
+      } else if (activeTab === 'footer') {
+        await updateConfigSection('footer', {
+          title: formData.title,
+          description: formData.description,
+          copyright: formData.copyright,
+        });
+        setMessage({
+          type: 'success',
+          text: '✅ Footer updated! Changes visible on homepage NOW.'
+        });
+      }
+
+      setTimeout(() => setMessage(null), 4000);
     } catch (err) {
-      setMessage({ type: 'error', text: `Failed to save: ${err.message}` });
+      setMessage({
+        type: 'error',
+        text: `Failed to save: ${err.message}`
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const renderTabContent = () => {
-    if (activeTab === 'hero') {
-      return (
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Main Title
-            </label>
-            <input
-              type="text"
-              value={formData.hero_title || formData.title || ''}
-              onChange={(e) => handleChange('hero_title', e.target.value)}
-              placeholder="नेपाल"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+  const renderHeroTab = () => (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-3">
+          🖼️ Hero Background Image (shown on homepage)
+        </label>
+        
+        <div className="flex gap-6">
+          {/* Image Preview */}
+          <div className="w-48 h-32 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden">
+            {heroImagePreview ? (
+              <img src={heroImagePreview} alt="Hero" className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center text-slate-400">
+                <ImageIcon size={24} />
+                <span className="text-xs mt-1">No image</span>
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Subtitle
-            </label>
-            <textarea
-              value={formData.hero_subtitle || formData.subtitle || ''}
-              onChange={(e) => handleChange('hero_subtitle', e.target.value)}
-              placeholder="Hero subtitle..."
-              rows="3"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              CTA Button Text
-            </label>
-            <input
-              type="text"
-              value={formData.hero_cta_text || formData.cta_text || ''}
-              onChange={(e) => handleChange('hero_cta_text', e.target.value)}
-              placeholder="सबै ट्रयाकरहरू"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Background Image
-            </label>
-            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 transition">
+          {/* Upload Area */}
+          <div className="flex-1">
+            <label className="block w-full p-4 border-2 border-dashed border-blue-300 rounded-lg bg-blue-50 cursor-pointer hover:bg-blue-100 transition text-center">
+              <div className="flex flex-col items-center gap-2">
+                <Upload size={20} className="text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">Click to upload hero image</span>
+                <span className="text-xs text-blue-700">JPG, PNG (max 5MB)</span>
+              </div>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
-                disabled={uploading || operationLoading}
+                disabled={uploadingImage}
                 className="hidden"
-                id="hero-image-input"
               />
-              <label htmlFor="hero-image-input" className="cursor-pointer">
-                <div className="flex flex-col items-center gap-2">
-                  <Upload size={32} className="text-slate-400" />
-                  <p className="text-sm font-medium text-slate-600">
-                    Click to upload image to Supabase
-                  </p>
-                  <p className="text-xs text-slate-500">PNG, JPG up to 5MB</p>
-                </div>
-              </label>
-            </div>
-
-            {(heroImagePreview || formData.hero_image_url) && (
-              <div className="mt-4 relative">
-                <img
-                  src={heroImagePreview || formData.hero_image_url}
-                  alt="Hero"
-                  className="w-full h-48 object-cover rounded-lg"
-                />
-                <button
-                  onClick={() => {
-                    setHeroImagePreview(null);
-                    setFormData(prev => ({ ...prev, hero_image_url: null }));
-                  }}
-                  className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
+            </label>
+            {uploadingImage && <p className="text-xs text-slate-500 mt-2">Uploading...</p>}
+            {formData.heroImageUrl && <p className="text-xs text-slate-500 mt-2">✅ Image set</p>}
           </div>
         </div>
-      );
-    }
+      </div>
 
-    if (activeTab === 'header') {
-      return (
-        <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Badge (small top text)
+        </label>
+        <input
+          type="text"
+          value={formData.badge}
+          onChange={(e) => handleChange('badge', e.target.value)}
+          placeholder="नागरिक ट्रयाकर : काठमाडौं महानगर"
+          className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+
+      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+        <p className="text-xs font-semibold text-slate-600 mb-3">📝 HERO TITLE (3 lines on homepage)</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Logo Text
-            </label>
             <input
               type="text"
-              value={formData.header_logo_text || formData.logo_text || ''}
-              onChange={(e) => handleChange('header_logo_text', e.target.value)}
-              placeholder="नेपाल ट्रयाकर"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={formData.title1}
+              onChange={(e) => handleChange('title1', e.target.value)}
+              placeholder="Line 1"
+              className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Navigation Links (comma-separated)
-            </label>
             <input
               type="text"
-              value={formData.header_nav_links || formData.nav_links || ''}
-              onChange={(e) => handleChange('header_nav_links', e.target.value)}
-              placeholder="Home, About, Contact"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={formData.title2}
+              onChange={(e) => handleChange('title2', e.target.value)}
+              placeholder="Line 2"
+              className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Header Description
-            </label>
             <input
               type="text"
-              value={formData.header_description || formData.description || ''}
-              onChange={(e) => handleChange('header_description', e.target.value)}
-              placeholder="Enter header description"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={formData.title3}
+              onChange={(e) => handleChange('title3', e.target.value)}
+              placeholder="Line 3"
+              className="w-full px-3 py-2 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         </div>
-      );
-    }
+      </div>
 
-    if (activeTab === 'footer') {
-      return (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Footer Text
-            </label>
-            <textarea
-              value={formData.footer_text || formData.text || ''}
-              onChange={(e) => handleChange('footer_text', e.target.value)}
-              placeholder="Enter footer text..."
-              rows="4"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            />
-          </div>
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Subtitle Description (shown under title)
+        </label>
+        <textarea
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          placeholder="Main description text..."
+          rows="3"
+          className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+        />
+      </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Copyright Text
-            </label>
-            <input
-              type="text"
-              value={formData.footer_copyright || formData.copyright || ''}
-              onChange={(e) => handleChange('footer_copyright', e.target.value)}
-              placeholder="© 2026 नेपाल सरकार"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Contact Email
-            </label>
-            <input
-              type="email"
-              value={formData.footer_email || formData.email || ''}
-              onChange={(e) => handleChange('footer_email', e.target.value)}
-              placeholder="contact@example.com"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
+            Start Button Text
+          </label>
+          <input
+            type="text"
+            value={formData.startButton}
+            onChange={(e) => handleChange('startButton', e.target.value)}
+            placeholder="सुरु गरौं"
+            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
         </div>
-      );
-    }
-
-    if (activeTab === 'general') {
-      return (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Site Name
-            </label>
-            <input
-              type="text"
-              value={formData.site_name || ''}
-              onChange={(e) => handleChange('site_name', e.target.value)}
-              placeholder="नेपाल ट्रयाकर"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Meta Description
-            </label>
-            <textarea
-              value={formData.meta_description || ''}
-              onChange={(e) => handleChange('meta_description', e.target.value)}
-              placeholder="SEO description..."
-              rows="3"
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Timezone
-            </label>
-            <select
-              value={formData.timezone || 'Asia/Kathmandu'}
-              onChange={(e) => handleChange('timezone', e.target.value)}
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="Asia/Kathmandu">Asia/Kathmandu (Nepal)</option>
-              <option value="UTC">UTC</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-              <input
-                type="checkbox"
-                checked={formData.maintenance_mode || false}
-                onChange={(e) => handleChange('maintenance_mode', e.target.checked)}
-                className="rounded"
-              />
-              Maintenance Mode
-            </label>
-          </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">
+            "How It Works" Button Text
+          </label>
+          <input
+            type="text"
+            value={formData.howItWorksButton}
+            onChange={(e) => handleChange('howItWorksButton', e.target.value)}
+            placeholder="कार्यप्रणाली"
+            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
         </div>
-      );
-    }
+      </div>
+    </div>
+  );
 
-    return null;
-  };
+  const renderFooterTab = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Footer Title
+        </label>
+        <input
+          type="text"
+          value={formData.title}
+          onChange={(e) => handleChange('title', e.target.value)}
+          placeholder="नेपाल ट्रयाकर"
+          className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Footer Description
+        </label>
+        <textarea
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          placeholder="Footer description..."
+          rows="3"
+          className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-2">
+          Copyright Text
+        </label>
+        <input
+          type="text"
+          value={formData.copyright}
+          onChange={(e) => handleChange('copyright', e.target.value)}
+          placeholder="© २०२६ नेपाल सरकार। सबै अधिकार सुरक्षित।"
+          className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">Content Manager</h1>
-        <p className="text-slate-500 text-sm mt-1">Manage your landing page content (saved to Supabase)</p>
+        <h1 className="text-3xl font-bold text-slate-800">📋 Content Manager</h1>
+        <p className="text-slate-500 text-sm mt-1">
+          ⚡ Control your ACTUAL homepage content. All changes sync to the frontend immediately!
+        </p>
       </div>
 
       {/* Message */}
@@ -383,25 +345,29 @@ const ContentManager = () => {
 
       {/* Content */}
       <div className="bg-white rounded-lg border border-slate-200 p-6">
-        {renderTabContent()}
+        {activeTab === 'hero' && renderHeroTab()}
+        {activeTab === 'footer' && renderFooterTab()}
       </div>
 
       {/* Action Buttons */}
       <div className="flex gap-3">
         <button
           onClick={handleSave}
-          disabled={loading || uploading}
-          className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition font-medium"
+          disabled={loading || uploadingImage}
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition font-semibold"
         >
-          {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-          Save to Supabase
+          {loading ? <AlertCircle size={18} className="animate-spin" /> : <Save size={18} />}
+          {loading ? 'Saving...' : 'Save & Sync to Frontend'}
         </button>
       </div>
 
       {/* Info Box */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900">
-          <strong>✅ Supabase Sync:</strong> All changes are saved directly to your Supabase cms_content table. Images are uploaded to Supabase Storage.
+        <p className="text-sm text-blue-900 font-medium">
+          ✅ <strong>LIVE SYNC:</strong> When you save, your changes immediately appear on the homepage!
+        </p>
+        <p className="text-xs text-blue-800 mt-2">
+          Hero image uploads to Supabase Storage. All data saves to database + frontend.
         </p>
       </div>
     </div>

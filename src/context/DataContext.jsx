@@ -46,6 +46,14 @@ export const DataProvider = ({ children }) => {
           console.warn("⚠️ Failed to fetch news updates:", err.message);
           setNewsUpdates([]); // Allow app to continue with empty news
         }
+
+        // Try to fetch CMS content, continue if fails
+        try {
+          await fetchCmsContent();
+        } catch (err) {
+          console.warn("⚠️ Failed to fetch CMS content:", err.message);
+          setCmsContent({}); // Allow app to continue with empty CMS
+        }
       } catch (err) {
         console.error("Initialization error (non-critical):", err);
         // Don't set error - allow app to continue

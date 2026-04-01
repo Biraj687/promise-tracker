@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 const ConfigContext = createContext();
 
@@ -38,6 +39,7 @@ const DEFAULT_CONFIG = {
     promiseLabel: "प्रतिबद्धताहरू",
     completedCount: "३०+",
     completedLabel: "योजना पूरा",
+    heroImageUrl: null,
   },
 
   // Stats Section
@@ -110,28 +112,106 @@ export const ConfigProvider = ({ children }) => {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
 
-  // Load configuration from localStorage on mount
+  // Load configuration from Supabase CMS on mount
   useEffect(() => {
-    try {
-      const storedConfig = localStorage.getItem('siteConfig');
-      if (storedConfig) {
-        setConfig(JSON.parse(storedConfig));
-      } else {
-        localStorage.setItem('siteConfig', JSON.stringify(DEFAULT_CONFIG));
+    const loadConfig = async () => {
+      try {
+        setLoading(true);
+        
+        // Try to load from Supabase cms_content table
+        const { data, error } = await supabase
+          .from('cms_content')
+          .select('*')
+          .eq('section_key', 'landing_page')
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.warn('⚠️ Supabase cms_content fetch warning:', error.message);
+        }
+
+        if (data) {
+          // Merge Supabase data with DEFAULT_CONFIG
+          const supabaseConfig = mergeSupabaseWithConfig(data);
+          setConfig(supabaseConfig);
+          console.log('✅ Config loaded from Supabase');
+        } else {
+          // No data in Supabase, use localStorage or DEFAULT
+          const storedConfig = localStorage.getItem('siteConfig');
+          if (storedConfig) {
+            setConfig(JSON.parse(storedConfig));
+            console.log('✅ Config loaded from localStorage');
+          } else {
+            setConfig(DEFAULT_CONFIG);
+            localStorage.setItem('siteConfig', JSON.stringify(DEFAULT_CONFIG));
+            console.log('✅ Using DEFAULT_CONFIG');
+          }
+        }
+      } catch (err) {
+        console.error('Config load error:', err);
+        const storedConfig = localStorage.getItem('siteConfig');
+        setConfig(storedConfig ? JSON.parse(storedConfig) : DEFAULT_CONFIG);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Failed to load site config:', err);
-      setConfig(DEFAULT_CONFIG);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    loadConfig();
   }, []);
 
-  // Save configuration to localStorage
-  const saveConfig = (newConfig) => {
+  // Merge Supabase CMS data with DEFAULT_CONFIG
+  const mergeSupabaseWithConfig = (cmsData) => {
+    return {
+      ...DEFAULT_CONFIG,
+      siteName: cmsData.site_name || DEFAULT_CONFIG.siteName,
+      balenHero: {
+        ...DEFAULT_CONFIG.balenHero,
+        title1: cmsData.hero_title_part1 || DEFAULT_CONFIG.balenHero.title1,
+        title2: cmsData.hero_title_part2 || DEFAULT_CONFIG.balenHero.title2,
+        title3: cmsData.hero_title_part3 || DEFAULT_CONFIG.balenHero.title3,
+        description: cmsData.hero_description || DEFAULT_CONFIG.balenHero.description,
+        heroImageUrl: cmsData.hero_image_url || null,
+      },
+      footer: {
+        ...DEFAULT_CONFIG.footer,
+        title: cmsData.footer_title || DEFAULT_CONFIG.footer.title,
+        description: cmsData.footer_description || DEFAULT_CONFIG.footer.description,
+        copyright: cmsData.footer_copyright || DEFAULT_CONFIG.footer.copyright,
+      },
+    };
+  };
+
+  // Save configuration to both Supabase and localStorage
+  const saveConfig = async (newConfig) => {
     try {
       setConfig(newConfig);
       localStorage.setItem('siteConfig', JSON.stringify(newConfig));
+
+      // Try to save to Supabase
+      const { data: existing } = await supabase
+        .from('cms_content')
+        .select('id')
+        .eq('section_key', 'landing_page')
+        .single();
+
+      const cmsData = {
+        section_key: 'landing_page',
+        site_name: newConfig.siteName,
+        hero_title_part1: newConfig.balenHero?.title1,
+        hero_title_part2: newConfig.balenHero?.title2,
+        hero_title_part3: newConfig.balenHero?.title3,
+        hero_description: newConfig.balenHero?.description,
+        hero_image_url: newConfig.balenHero?.heroImageUrl,
+        footer_title: newConfig.footer?.title,
+        footer_description: newConfig.footer?.description,
+        footer_copyright: newConfig.footer?.copyright,
+      };
+
+      if (existing?.id) {
+        await supabase.from('cms_content').update(cmsData).eq('id', existing.id);
+      } else {
+        await supabase.from('cms_content').insert([cmsData]);
+      }
+
       return { success: true };
     } catch (err) {
       console.error('Failed to save config:', err);
@@ -140,7 +220,7 @@ export const ConfigProvider = ({ children }) => {
   };
 
   // Update specific section of config
-  const updateConfigSection = (section, updates) => {
+  const updateConfigSection = async (section, updates) => {
     try {
       const updatedConfig = {
         ...config,
@@ -149,8 +229,7 @@ export const ConfigProvider = ({ children }) => {
           ...updates,
         },
       };
-      saveConfig(updatedConfig);
-      return { success: true };
+      return await saveConfig(updatedConfig);
     } catch (err) {
       console.error(`Failed to update ${section}:`, err);
       return { success: false, error: err.message };

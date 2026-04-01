@@ -82,7 +82,7 @@ const Hero = () => {
               <img 
                 alt="Kathmandu Drone View" 
                 className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-1000" 
-                src="https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop"
+                src={hero.heroImageUrl || "https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop"}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent pointer-events-none" />
               
