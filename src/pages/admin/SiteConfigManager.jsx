@@ -408,39 +408,40 @@ const SiteConfigManager = () => {
                 className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
               />
             </div>
-          </div>
-        )}
 
-        {/* Featured Section */}
-        {activeTab === 'featured' && (
-          <div className="space-y-8 max-w-3xl">
+            <hr className="border-outline-variant my-4" />
+
             <div>
-              <label className="block text-sm font-bold text-primary mb-2">Featured Trackers Title</label>
+              <label className="block text-sm font-bold text-primary mb-2">Category Grid Badge</label>
               <input
                 type="text"
-                name="featured_trackers_title"
-                value={formData.featured_trackers_title || ''}
+                name="category_badge_text"
+                value={formData.category_badge_text || ''}
                 onChange={handleInputChange}
                 className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-primary mb-2">Featured Trackers Description</label>
-              <textarea
-                name="featured_trackers_description"
-                value={formData.featured_trackers_description || ''}
+              <label className="block text-sm font-bold text-primary mb-2">Category Grid Title</label>
+              <input
+                type="text"
+                name="category_title"
+                value={formData.category_title || ''}
                 onChange={handleInputChange}
-                rows="4"
                 className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
               />
             </div>
 
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-              <p className="text-sm text-blue-800">
-                💡 Featured trackers are controlled individually in the "Trackers" section. 
-                Set <strong>is_featured = true</strong> for any category to display it here.
-              </p>
+            <div>
+              <label className="block text-sm font-bold text-primary mb-2">Category Grid Description</label>
+              <textarea
+                name="category_description"
+                value={formData.category_description || ''}
+                onChange={handleInputChange}
+                rows="3"
+                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+              />
             </div>
           </div>
         )}
@@ -465,7 +466,7 @@ const SiteConfigManager = () => {
                 name="stats_description"
                 value={formData.stats_description || ''}
                 onChange={handleInputChange}
-                rows="4"
+                rows="3"
                 className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
               />
             </div>
@@ -487,6 +488,61 @@ const SiteConfigManager = () => {
                 type="text"
                 name="stats_tracker_label"
                 value={formData.stats_tracker_label || ''}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-primary mb-2">Total Label</label>
+              <input
+                type="text"
+                name="stats_total_label"
+                value={formData.stats_total_label || ''}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-primary mb-2">Commitment Text</label>
+              <input
+                type="text"
+                name="stats_commitment_text"
+                value={formData.stats_commitment_text || ''}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-primary mb-2">Completed Label</label>
+              <input
+                type="text"
+                name="stats_completed_label"
+                value={formData.stats_completed_label || ''}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-primary mb-2">Implementation Label</label>
+              <input
+                type="text"
+                name="stats_implementation_label"
+                value={formData.stats_implementation_label || ''}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-primary mb-2">Planning Label</label>
+              <input
+                type="text"
+                name="stats_planning_label"
+                value={formData.stats_planning_label || ''}
                 onChange={handleInputChange}
                 className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
               />

@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Layers, Layout, Shield, Heart, Zap, Coffee, Briefcase, GraduationCap, Building2, Car, Phone } from 'lucide-react';
+import { useConfig } from '../../context/ConfigContext';
 
 const CategoryGrid = ({ categories, promises }) => {
+  const { config } = useConfig();
   // Map icons to categories if available, otherwise use a default
   const getIcon = (catName) => {
     const iconMap = {
@@ -42,13 +44,13 @@ const CategoryGrid = ({ categories, promises }) => {
         <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-16 gap-6 text-center md:text-left">
           <div>
             <div className="inline-block px-3 py-1 rounded-full bg-primary/5 text-primary text-xs font-bold uppercase tracking-widest mb-4 border border-primary/10">
-              योजना वर्गीकरण
+              {config.category_badge_text || 'योजना वर्गीकरण'}
             </div>
             <h2 className="font-headline text-4xl md:text-5xl font-black text-primary mb-4 tracking-tight">
-              विषगत क्षेत्रहरू
+              {config.category_title || 'विषगत क्षेत्रहरू'}
             </h2>
             <p className="text-on-surface-variant font-medium max-w-xl">
-              १००-बुँदे नागरिक प्रतिवद्धतालाई १२ मुख्य विधामा विभाजन गरी गहन अनुगमन गरिएको छ।
+              {config.category_description || '१००-बुँदे नागरिक प्रतिवद्धतालाई १२ मुख्य विधामा विभाजन गरी गहन अनुगमन गरिएको छ।'}
             </p>
           </div>
           <Link 

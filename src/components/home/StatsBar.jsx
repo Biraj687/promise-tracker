@@ -4,7 +4,6 @@ import { useConfig } from '../../context/ConfigContext';
 
 const StatsBar = ({ stats }) => {
   const { config } = useConfig();
-  const statsConfig = config.stats || {};
   const { total, completed, implementation, planning, percentage } = stats;
 
   return (
@@ -19,20 +18,20 @@ const StatsBar = ({ stats }) => {
           <div className="relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-12 gap-8">
               <div className="text-center md:text-left">
-                <h2 className="font-headline text-3xl lg:text-4xl font-black text-primary mb-3">{statsConfig.title || 'समग्र प्रगति समीक्षा'}</h2>
-                <p className="text-on-surface-variant font-medium max-w-md">{statsConfig.description || 'काठमाडौंको दिगो विकास र सुशासनका लागि गरिएका प्रतिबद्धताहरूको वास्तविक अवस्था।'}</p>
+                <h2 className="font-headline text-3xl lg:text-4xl font-black text-primary mb-3">{config.stats_title || 'समग्र प्रगति समीक्षा'}</h2>
+                <p className="text-on-surface-variant font-medium max-w-md">{config.stats_description || 'काठमाडौंको दिगो विकास र सुशासनका लागि गरिएका प्रतिबद्धताहरूको वास्तविक अवस्था।'}</p>
               </div>
               <div className="text-center md:text-right bg-primary/5 px-6 py-4 rounded-2xl border border-primary/10">
                 <span className="text-5xl lg:text-6xl font-black text-primary font-headline block leading-none">{percentage}%</span>
-                <p className="text-xs font-bold text-secondary uppercase tracking-widest mt-2">{statsConfig.progressLabel || 'कुल सम्पन्नता दर'}</p>
+                <p className="text-xs font-bold text-secondary uppercase tracking-widest mt-2">{config.stats_progress_label || 'कुल सम्पन्नता दर'}</p>
               </div>
             </div>
             
             {/* Multi-segment Progress Bar */}
             <div className="mb-16">
                <div className="flex justify-between mb-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 px-1">
-                  <span>{statsConfig.trackerLabel || 'प्रगति ट्रयाकर'}</span>
-                  <span>{statsConfig.totalLabel || 'कुल'} {total} {statsConfig.commitmentText || 'प्रतिबद्धताहरू'}</span>
+                  <span>{config.stats_tracker_label || 'प्रगति ट्रयाकर'}</span>
+                  <span>{statsConfig.total_label || 'कुल'} {total} {statsConfig.commitment_text || 'प्रतिबद्धताहरू'}</span>
                </div>
                <div className="h-4 w-full bg-surface-container rounded-full overflow-hidden flex shadow-inner">
                   <motion.div 
@@ -66,7 +65,7 @@ const StatsBar = ({ stats }) => {
                 </div>
                 <div>
                   <span className="text-3xl font-black text-primary block leading-none mb-1">{completed}</span>
-                  <span className="text-on-surface-variant text-sm font-bold opacity-80 uppercase tracking-tight">{statsConfig.completedLabel || 'सम्पन्न'}</span>
+                  <span className="text-on-surface-variant text-sm font-bold opacity-80 uppercase tracking-tight">{config.stats_completed_label || 'सम्पन्न'}</span>
                 </div>
               </motion.div>
 
@@ -79,7 +78,7 @@ const StatsBar = ({ stats }) => {
                 </div>
                 <div>
                   <span className="text-3xl font-black text-primary block leading-none mb-1">{implementation}</span>
-                  <span className="text-on-surface-variant text-sm font-bold opacity-80 uppercase tracking-tight">{statsConfig.implementationLabel || 'कार्यान्वयनमा'}</span>
+                  <span className="text-on-surface-variant text-sm font-bold opacity-80 uppercase tracking-tight">{config.stats_implementation_label || 'कार्यान्वयनमा'}</span>
                 </div>
               </motion.div>
 
@@ -92,7 +91,7 @@ const StatsBar = ({ stats }) => {
                 </div>
                 <div>
                   <span className="text-3xl font-black text-primary block leading-none mb-1">{planning}</span>
-                  <span className="text-on-surface-variant text-sm font-bold opacity-80 uppercase tracking-tight">{statsConfig.planningLabel || 'प्रतिक्षामा'}</span>
+                  <span className="text-on-surface-variant text-sm font-bold opacity-80 uppercase tracking-tight">{config.stats_planning_label || 'प्रतिक्षामा'}</span>
                 </div>
               </motion.div>
             </div>

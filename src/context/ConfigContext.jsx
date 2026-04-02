@@ -42,6 +42,16 @@ const DEFAULT_CONFIG = {
   stats_description: "काठमाडौंको दिगो विकास र सुशासनका लागि गरिएका प्रतिबद्धताहरूको वास्तविक अवस्था।",
   stats_progress_label: "कुल सम्पन्नता दर",
   stats_tracker_label: "प्रगति ट्रयाकर",
+  stats_total_label: "कुल",
+  stats_commitment_text: "प्रतिबद्धताहरू",
+  stats_completed_label: "सम्पन्न",
+  stats_implementation_label: "कार्यान्वयनमा",
+  stats_planning_label: "प्रतिक्षामा",
+
+  // Category Grid Section
+  category_badge_text: "योजना वर्गीकरण",
+  category_title: "विषगत क्षेत्रहरू",
+  category_description: "",
 
   // Footer
   footer_title: "नेपाल ट्रयाकर",
