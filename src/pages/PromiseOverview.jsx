@@ -22,14 +22,16 @@ const PromiseOverview = () => {
   // Transform categories to display format
   useEffect(() => {
     if (categories && categories.length > 0) {
-      const trackers = categories.slice(0, 3).map((cat, idx) => {
+      const images = [
+        'https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop'
+      ];
+      const colors = ['bg-primary', 'bg-accent-emerald', 'bg-accent-rose'];
+      
+      // Show ALL categories from backend, not just 3
+      const trackers = categories.map((cat, idx) => {
         const stats = getCategoryStats(cat.id);
-        const images = [
-          'https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop'
-        ];
-        const colors = ['bg-primary', 'bg-accent-emerald', 'bg-accent-rose'];
         
         return {
           id: cat.id,
@@ -41,8 +43,8 @@ const PromiseOverview = () => {
           completed: stats.completed,
           inProgress: stats.inProgress,
           pending: stats.pending,
-          image: cat.image_url || images[idx],
-          color: colors[idx],
+          image: cat.hero_image_url || cat.image_url || images[idx % images.length],
+          color: colors[idx % colors.length],
           link: `/balen-tracker?category=${cat.id}`
         };
       });
