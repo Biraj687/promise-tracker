@@ -202,29 +202,6 @@ const PromiseOverview = () => {
         </div>
       </section>
 
-      {/* Modern Newsletter/CTA Section */}
-      <section className="py-24 px-6 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-primary rounded-[3rem] p-12 lg:p-20 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-100 h-100 bg-secondary/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
-            
-            <div className="relative z-10 max-w-2xl mx-auto text-center">
-              <h2 className="font-headline text-4xl lg:text-5xl font-black text-white mb-6">हाम्रो अभियानमा जोड्नुहोस्</h2>
-              <p className="text-white/70 text-lg mb-12 font-medium">
-                तपाईंको क्षेत्रको प्रतिवद्धता ट्रयाक गर्न चाहनुहुन्छ वा डेटा प्रमाणित गर्न मद्दत गर्न चाहनुहुन्छ? आजै हाम्रो स्वयंसेवी टोलीमा सहभागी हुनुहोस्।
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="#contact" className="bg-white text-primary px-10 py-5 rounded-2xl font-black hover:bg-secondary hover:text-white transition-all shadow-xl cursor-pointer">
-                  अनुरोध पठाउनुहोस्
-                </a>
-                <a href="#verify" className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-10 py-5 rounded-2xl font-black hover:bg-white/20 transition-all cursor-pointer">
-                  डेटा प्रमाणित गर्नुहोस्
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };
