@@ -35,12 +35,12 @@ const HomepageDashboard = () => {
   const [heroImagePreview, setHeroImagePreview] = useState(null);
   const [uploadingHero, setUploadingHero] = useState(false);
   const [showAddPromiseForm, setShowAddPromiseForm] = useState(false);
+  const [editingPromise, setEditingPromise] = useState(null);
   const [newPromise, setNewPromise] = useState({
     title: '',
     description: '',
     status: 'Pending',
-    progress: 0,
-    category_id: null
+    progress: 0
   });
 
   // Load data - fetch from DB to avoid dummy data replacement
@@ -136,7 +136,7 @@ const HomepageDashboard = () => {
 
   // Get category stats
   const getCategoryStats = (categoryId) => {
-    const catPromises = promises.filter(p => (p.categoryId || p.category_id) === categoryId);
+    const catPromises = promises.filter(p => p.category_id === categoryId);
     return {
       total: catPromises.length,
       completed: catPromises.filter(p => p.status === 'Completed').length,
@@ -175,10 +175,10 @@ const HomepageDashboard = () => {
 
       const imageUrl = publicData.publicUrl;
 
-      // Update tracker with new hero image
+      // Update tracker with new image
       const { error: updateError } = await supabase
         .from('categories')
-        .update({ hero_image_url: imageUrl })
+        .update({ image_url: imageUrl })
         .eq('id', editingTrackerHero.id);
 
       if (updateError) throw updateError;
@@ -206,24 +206,41 @@ const HomepageDashboard = () => {
         return;
       }
 
+      if (!categoryFilter) {
+        alert('Please select a category first');
+        return;
+      }
+
+      // Only send valid columns - NO duplicates!
       const promiseToSave = {
-        ...newPromise,
-        category_id: categoryFilter,
-        categoryId: categoryFilter
+        title: newPromise.title,
+        description: newPromise.description,
+        status: newPromise.status,
+        progress: newPromise.progress,
+        category_id: categoryFilter
       };
 
-      const { error } = await supabase
-        .from('promises')
-        .insert([promiseToSave]);
+      console.log('📝 Saving promise:', promiseToSave);
 
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from('promises')
+        .insert([promiseToSave])
+        .select();
+
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
+
+      console.log('✅ Promise saved successfully:', data);
 
       // Refresh filtered promises
       if (categoryFilter) {
         const { data: promises } = await supabase
           .from('promises')
           .select('*')
-          .eq('category_id', categoryFilter);
+          .eq('category_id', categoryFilter)
+          .order('created_at', { ascending: false });
         setFilteredPromises(promises || []);
       }
 
@@ -235,9 +252,96 @@ const HomepageDashboard = () => {
         progress: 0,
         category_id: null
       });
+
+      alert('✅ Promise saved successfully!');
     } catch (err) {
       console.error('Error saving promise:', err);
-      alert('Failed to save promise. Please try again.');
+      alert(`Failed to save promise: ${err.message || 'Unknown error'}`);
+    }
+  };
+
+  // Update promise
+  const updatePromise = async () => {
+    try {
+      if (!editingPromise?.id) return;
+      if (!editingPromise.title.trim()) {
+        alert('Please enter a promise title');
+        return;
+      }
+
+      const promiseToUpdate = {
+        title: editingPromise.title,
+        description: editingPromise.description,
+        status: editingPromise.status,
+        progress: editingPromise.progress
+      };
+
+      console.log('📝 Updating promise:', promiseToUpdate);
+
+      const { error } = await supabase
+        .from('promises')
+        .update(promiseToUpdate)
+        .eq('id', editingPromise.id);
+
+      if (error) throw error;
+
+      console.log('✅ Promise updated successfully');
+
+      // Refresh filtered promises
+      if (categoryFilter) {
+        const { data: promises } = await supabase
+          .from('promises')
+          .select('*')
+          .eq('category_id', categoryFilter)
+          .order('created_at', { ascending: false });
+        setFilteredPromises(promises || []);
+      }
+
+      setEditingPromise(null);
+      alert('✅ Promise updated successfully!');
+    } catch (err) {
+      console.error('Error updating promise:', err);
+      alert(`Failed to update promise: ${err.message || 'Unknown error'}`);
+    }
+  };
+
+  // Delete promise
+  const deletePromise = async (promiseId, promiseTitle) => {
+    if (window.confirm(`Are you sure you want to delete "${promiseTitle}"? This action cannot be undone.`)) {
+      try {
+        console.log('🗑️ Deleting promise:', promiseId);
+
+        const { error } = await supabase
+          .from('promises')
+          .delete()
+          .eq('id', promiseId);
+
+        if (error) throw error;
+
+        console.log('✅ Promise deleted successfully');
+
+        // Refresh filtered promises
+        if (categoryFilter) {
+          const { data: promises } = await supabase
+            .from('promises')
+            .select('*')
+            .eq('category_id', categoryFilter)
+            .order('created_at', { ascending: false });
+          setFilteredPromises(promises || []);
+        } else {
+          // If no filter, fetch all promises
+          const { data: promises } = await supabase
+            .from('promises')
+            .select('*')
+            .order('created_at', { ascending: false });
+          setFilteredPromises(promises || []);
+        }
+
+        alert('✅ Promise deleted successfully!');
+      } catch (err) {
+        console.error('Error deleting promise:', err);
+        alert(`Failed to delete promise: ${err.message || 'Unknown error'}`);
+      }
     }
   };
 
@@ -486,9 +590,9 @@ const HomepageDashboard = () => {
                       >
                         {/* Header with Image */}
                         <div className="relative h-40 overflow-hidden bg-slate-100 group/image">
-                          {tracker.hero_image_url ? (
+                          {tracker.image_url ? (
                             <img
-                              src={tracker.hero_image_url}
+                              src={tracker.image_url}
                               alt={tracker.name}
                               className="w-full h-full object-cover group-hover/image:scale-110 transition-transform duration-500"
                               onError={(e) => (e.target.src = 'https://via.placeholder.com/400x200?text=No+Image')}
@@ -503,10 +607,10 @@ const HomepageDashboard = () => {
                             onClick={() => {
                               setEditingTrackerHero(tracker);
                               setShowEditHero(true);
-                              setHeroImagePreview(tracker.hero_image_url);
+                              setHeroImagePreview(tracker.image_url);
                             }}
                             className="absolute top-2 right-2 bg-primary/80 hover:bg-primary text-white p-2 rounded-full opacity-0 group-hover/image:opacity-100 transition-opacity"
-                            title="Edit Hero Image"
+                            title="Edit Image"
                           >
                             <Upload size={18} />
                           </button>
@@ -694,6 +798,93 @@ const HomepageDashboard = () => {
                         )}
                       </AnimatePresence>
 
+                      {/* Edit Promise Form */}
+                      <AnimatePresence>
+                        {editingPromise && (
+                          <motion.div
+                            key="edit-promise"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="bg-amber-50 p-6 rounded-xl border-2 border-amber-200 mb-6 mt-4"
+                          >
+                            <div className="flex justify-between items-center mb-6">
+                              <h4 className="text-lg font-bold text-amber-900">Edit Promise</h4>
+                              <button
+                                onClick={() => setEditingPromise(null)}
+                                className="text-amber-600 hover:text-amber-800"
+                              >
+                                <X size={24} />
+                              </button>
+                            </div>
+
+                            <div className="mb-6">
+                              <label className="block text-sm font-bold text-primary mb-2">Title</label>
+                              <input
+                                type="text"
+                                placeholder="Enter promise title..."
+                                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                                value={editingPromise.title}
+                                onChange={(e) => setEditingPromise({ ...editingPromise, title: e.target.value })}
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                              <div>
+                                <label className="block text-sm font-bold text-primary mb-2">Status</label>
+                                <select
+                                  className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                                  value={editingPromise.status}
+                                  onChange={(e) => setEditingPromise({ ...editingPromise, status: e.target.value })}
+                                >
+                                  <option value="Pending">Pending</option>
+                                  <option value="In Progress">In Progress</option>
+                                  <option value="Completed">Completed</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="mb-6">
+                              <label className="block text-sm font-bold text-primary mb-2">Description</label>
+                              <textarea
+                                placeholder="Enter promise description..."
+                                rows="3"
+                                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                                value={editingPromise.description}
+                                onChange={(e) => setEditingPromise({ ...editingPromise, description: e.target.value })}
+                              />
+                            </div>
+
+                            <div className="mb-6">
+                              <label className="block text-sm font-bold text-primary mb-2">Progress: {editingPromise.progress}%</label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                className="w-full"
+                                value={editingPromise.progress}
+                                onChange={(e) => setEditingPromise({ ...editingPromise, progress: parseInt(e.target.value) })}
+                              />
+                            </div>
+
+                            <div className="flex gap-3 justify-end">
+                              <button
+                                onClick={() => setEditingPromise(null)}
+                                className="px-6 py-2 border border-outline-variant text-primary rounded-xl font-bold hover:bg-surface transition-all"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={updatePromise}
+                                className="px-6 py-2 bg-amber-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"
+                              >
+                                <Save size={18} /> Update Promise
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
                       {/* Promises List */}
                       <div className="space-y-3 max-h-96 overflow-y-auto">
                         {filteredPromises.length > 0 ? (
@@ -721,8 +912,19 @@ const HomepageDashboard = () => {
                                   >
                                     {promise.status}
                                   </span>
-                                  <button className="text-slate-400 hover:text-primary">
-                                    <MoreVertical size={18} />
+                                  <button
+                                    onClick={() => setEditingPromise(promise)}
+                                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                    title="Edit promise"
+                                  >
+                                    <Edit2 size={18} />
+                                  </button>
+                                  <button
+                                    onClick={() => deletePromise(promise.id, promise.title)}
+                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Delete promise"
+                                  >
+                                    <Trash2 size={18} />
                                   </button>
                                 </div>
                               </div>

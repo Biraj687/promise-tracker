@@ -7,8 +7,8 @@ const Navbar = () => {
   const { config } = useConfig();
 
   const navLinks = [
-    { name: config.nav?.homeLabel || 'नयाँ', path: '/' },
-    { name: config.nav?.balenLabel || 'बालेन साह', path: '/balen-tracker' },
+    { name: config.nav_home_label || 'नयाँ', path: '/' },
+    { name: config.nav_balen_label || 'बालेन साह', path: '/balen-tracker' },
   ];
 
   return (
@@ -16,11 +16,19 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between bg-white/80 backdrop-blur-xl border border-white/20 shadow-glass rounded-2xl px-6 py-3 pointer-events-auto">
         {/* Logo Section */}
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white transform group-hover:rotate-12 transition-transform duration-300">
-            <BarChart3 size={24} />
-          </div>
+          {config.site_logo_url ? (
+            <img 
+              src={config.site_logo_url} 
+              alt="Logo" 
+              className="w-10 h-10 rounded-xl object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white transform group-hover:rotate-12 transition-transform duration-300">
+              <BarChart3 size={24} />
+            </div>
+          )}
           <span className="text-xl font-black text-primary font-headline tracking-tight hidden sm:block">
-            {config.siteName || 'नेपाल ट्रयाकर'}
+            {config.site_name || 'नेपाल ट्रयाकर'}
           </span>
         </Link>
 
@@ -47,7 +55,7 @@ const Navbar = () => {
             <Search size={18} className="text-on-surface-variant group-focus-within:text-primary transition-colors" />
             <input
               className="bg-transparent border-none focus:ring-0 text-sm w-40 font-body outline-none px-2 text-on-surface placeholder:text-on-surface-variant/60"
-              placeholder={config.nav?.searchPlaceholder || 'खोज्नुहोस्...'}
+              placeholder={config.nav_search_placeholder || 'खोज्नुहोस्...'}
               type="text"
             />
           </div>

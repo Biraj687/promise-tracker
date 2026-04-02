@@ -3,14 +3,16 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, User, MapPin, CheckCircle2, Clock, Globe, ShieldCheck, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
+import { useConfig } from '../context/ConfigContext';
 
 const PromiseOverview = () => {
   const { categories, promises, loading } = useData();
+  const { config } = useConfig();
   const [displayTrackers, setDisplayTrackers] = useState([]);
 
   // Get stats for a category
   const getCategoryStats = (categoryId) => {
-    const catPromises = promises.filter(p => p.category_id === categoryId || p.categoryId === categoryId);
+    const catPromises = promises.filter(p => p.category_id === categoryId);
     return {
       total: catPromises.length,
       completed: catPromises.filter(p => p.status === 'Completed').length,
@@ -19,38 +21,35 @@ const PromiseOverview = () => {
     };
   };
 
-  // Transform categories to display format
+  // Transform categories to display format - NO hardcoded images or colors
   useEffect(() => {
-    if (categories && categories.length > 0) {
-      const images = [
-        'https://images.unsplash.com/photo-1544216717-3bbf52512659?w=800&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop'
-      ];
-      const colors = ['bg-primary', 'bg-accent-emerald', 'bg-accent-rose'];
-      
+    if (categories && categories.length > 0) {      
       // Show ALL categories from backend, not just 3
-      const trackers = categories.map((cat, idx) => {
-        const stats = getCategoryStats(cat.id);
+      const trackers = categories
+        .filter(cat => cat.display_order !== -1) // Hide if display_order is -1
+        .map((cat) => {
+          const stats = getCategoryStats(cat.id);
+          
+          return {
+            id: cat.id,
+            name: cat.name,
+            title: cat.description || cat.name,
+            platform: cat.platform || config.site_name || 'नेपाल ट्रयाकर',
+            description: cat.description || 'विकास र सुशासनका लागि गरिएका प्रतिवद्धताहरू।',
+            totalPromises: stats.total,
+            completed: stats.completed,
+            inProgress: stats.inProgress,
+            pending: stats.pending,
+            image: cat.image_url,
+            color: cat.color || 'bg-primary',
+            link: `/balen-tracker?category=${cat.id}`
+          };
+        })
+        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
         
-        return {
-          id: cat.id,
-          name: cat.name,
-          title: cat.description || cat.name,
-          platform: cat.platform || 'नेपाल ट्रयाकर',
-          description: cat.description || 'विकास र सुशासनका लागि गरिएका प्रतिवद्धताहरू।',
-          totalPromises: stats.total,
-          completed: stats.completed,
-          inProgress: stats.inProgress,
-          pending: stats.pending,
-          image: cat.hero_image_url || cat.image_url || images[idx % images.length],
-          color: colors[idx % colors.length],
-          link: `/balen-tracker?category=${cat.id}`
-        };
-      });
       setDisplayTrackers(trackers);
     }
-  }, [categories, promises]);
+  }, [categories, promises, config]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -85,17 +84,17 @@ const PromiseOverview = () => {
           >
             <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-outline-variant shadow-sm mb-8">
               <ShieldCheck size={18} className="text-secondary" />
-              <span className="text-primary font-bold text-xs uppercase tracking-widest font-headline">प्रमाणित डेटा • पारदर्शी शासन</span>
+              <span className="text-primary font-bold text-xs uppercase tracking-widest font-headline">{config.hero_badge || 'प्रमाणित डेटा • पारदर्शी शासन'}</span>
             </div>
             <h1 className="font-headline text-5xl md:text-7xl lg:text-8xl font-black text-primary mb-8 tracking-tight">
-              नेपाल <span className="text-secondary">ट्रयाकर।</span>
+              {config.hero_main_title || 'नेपाल'} <span className="text-secondary">{config.hero_main_title_accent || 'ट्रयाकर।'}</span>
             </h1>
             <p className="text-on-surface-variant font-medium text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed mb-12">
-              नेपालका जननिर्वाचित प्रतिनिधि र सरकारी निकायहरूले गरेका सार्वजनिक प्रतिबद्धताहरूको वास्तविक समय अनुगमन केन्द्र।
+              {config.hero_description || 'नेपालका जननिर्वाचित प्रतिनिधि र सरकारी निकायहरूले गरेका सार्वजनिक प्रतिबद्धताहरूको वास्तविक समय अनुगमन केन्द्र।'}
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link to="/tracker" className="premium-gradient text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-premium hover:-translate-y-1 transition-all">
-                सबै ट्रयाकरहरू
+                {config.hero_cta_button || 'सबै ट्रयाकरहरू'}
               </Link>
               <div className="flex items-center gap-3 px-6 py-4 bg-white rounded-2xl border border-outline-variant">
                  <div className="flex -space-x-2">
@@ -105,7 +104,7 @@ const PromiseOverview = () => {
                       </div>
                     ))}
                  </div>
-                 <span className="text-sm font-bold text-primary">१२,०००+ सक्रिय नागरिक</span>
+                 <span className="text-sm font-bold text-primary">{config.hero_active_users || '१२,०००+ सक्रिय नागरिक'}</span>
               </div>
             </div>
           </motion.div>
@@ -117,8 +116,8 @@ const PromiseOverview = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-16 gap-6">
             <div className="text-center md:text-left">
-              <h2 className="font-headline text-4xl font-black text-primary mb-4 tracking-tight">प्रमुख ट्रयाकरहरू</h2>
-              <p className="text-on-surface-variant font-medium max-w-md">अहिले सक्रिय रूपमा अनुगमन भइरहेका प्रमुख सार्वजनिक योजना र व्यक्तित्वहरू।</p>
+              <h2 className="font-headline text-4xl font-black text-primary mb-4 tracking-tight">{config.featured_trackers_title || 'प्रमुख ट्रयाकरहरू'}</h2>
+              <p className="text-on-surface-variant font-medium max-w-md">{config.featured_trackers_description || 'अहिले सक्रिय रूपमा अनुगमन भइरहेका प्रमुख सार्वजनिक योजना र व्यक्तित्वहरू।'}</p>
             </div>
           </div>
 
@@ -136,12 +135,18 @@ const PromiseOverview = () => {
                 whileHover={{ y: -10 }}
                 className="group bg-white rounded-[2.5rem] overflow-hidden border border-outline-variant shadow-sm hover:shadow-premium transition-all duration-500"
               >
-                <Link to={portal.link} className="block relative h-64 overflow-hidden">
-                  <img
-                    src={portal.image}
-                    alt={portal.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-                  />
+                <Link to={portal.link} className="block relative h-64 overflow-hidden bg-surface-container">
+                  {portal.image ? (
+                    <img
+                      src={portal.image}
+                      alt={portal.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
+                      <span className="text-4xl font-black text-primary/50">{portal.name.charAt(0)}</span>
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-linear-to-t from-primary/80 to-transparent" />
                   <div className="absolute bottom-6 left-6 right-6">
                     <div className="flex items-center gap-2 text-white/80 text-xs font-bold uppercase tracking-widest mb-2">
@@ -188,6 +193,12 @@ const PromiseOverview = () => {
               </motion.div>
             ))}
           </motion.div>
+
+          {displayTrackers.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-on-surface-variant text-lg">No trackers available yet. Check back soon!</p>
+            </div>
+          )}
         </div>
       </section>
 

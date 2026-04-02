@@ -7,6 +7,7 @@ const db = require('./db/database'); // Initialize and seed DB
 const authRoute = require('./routes/authRoute');
 const promisesRoute = require('./routes/promisesRoute');
 const usersRoute = require('./routes/usersRoute');
+const configRoute = require('./routes/configRoute');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/auth', authRoute);
 app.use('/api/promises', promisesRoute);
 app.use('/api/users', usersRoute);
+app.use('/api/config', configRoute);
 
 // Basic Stats Route
 app.get('/api/stats', (req, res) => {

@@ -28,7 +28,6 @@ const ManagePromises = () => {
     description: '',
     status: 'Pending',
     progress: 0,
-    hero_image_url: '',
     point_no: 0,
     responsible_ministry: 'Administrative Office',
     target_date: '',
@@ -84,42 +83,8 @@ const ManagePromises = () => {
     }
   };
 
-  const handlePromiseImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    try {
-      setUploading(true);
-      setMessage(null);  // Clear previous messages
-      
-      console.log('🔄 Handling image upload:', file.name, 'Size:', file.size, 'Type:', file.type);
-      
-      const publicUrl = await uploadImage(file);
-      console.log('✅ Upload successful, URL:', publicUrl);
-      
-      setPromiseImagePreview(publicUrl);
-      if (editingPromise) {
-        setEditingPromise(prev => ({ ...prev, hero_image_url: publicUrl }));
-      } else {
-        setNewPromise(prev => ({ ...prev, hero_image_url: publicUrl }));
-      }
-      setMessage({ type: 'success', text: '✅ Promise image uploaded successfully!' });
-      
-      // Clear input to allow re-upload of same file
-      e.target.value = '';
-    } catch (err) {
-      console.error('❌ Upload error:', err);
-      setMessage({ 
-        type: 'error', 
-        text: `❌ Upload failed: ${err.message}. Check browser console for details.` 
-      });
-      
-      // Clear input on error too
-      e.target.value = '';
-    } finally {
-      setUploading(false);
-    }
-  };
+  // Note: Individual promises do NOT have their own images
+  // Promises display the category's image (image_url) instead
 
   const handleAddTag = (e) => {
     if (e.key === 'Enter' && newTag.trim()) {
@@ -480,8 +445,8 @@ const ManagePromises = () => {
                       return (
                         <div key={promise.id} className={`border rounded-4xl overflow-hidden transition-all ${isEditing ? 'border-primary ring-4 ring-primary/5' : 'border-slate-100 hover:border-slate-200'}`}>
                            <div className={`p-6 flex items-center gap-6 ${isEditing ? 'bg-primary/5' : isExpanded ? 'bg-slate-50' : 'bg-white'}`}>
-                              <div className="w-24 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0">
-                                 {promise.hero_image_url ? <img src={promise.hero_image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={20} /></div>}
+                              <div className="w-24 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
+                                 <ImageIcon size={24} className="text-slate-300" />
                               </div>
                               <div className="flex-1 min-w-0">
                                  {isEditing ? (
