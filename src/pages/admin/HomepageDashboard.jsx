@@ -44,22 +44,39 @@ const HomepageDashboard = () => {
   });
 
   // Load data - fetch from DB to avoid dummy data replacement
+  const fetchTrackers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      setTrackers(data || []);
+    } catch (err) {
+      console.error('Error fetching trackers:', err);
+      setTrackers([]);
+    }
+  };
+
   useEffect(() => {
-    const fetchTrackers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .order('display_order', { ascending: true })
-          .limit(3);
-        if (error) throw error;
-        setTrackers(data || []);
-      } catch (err) {
-        console.error('Error fetching trackers:', err);
-        setTrackers([]);
-      }
-    };
     fetchTrackers();
+
+    // Real-time subscription to categories changes
+    const subscription = supabase
+      .channel('categories')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'categories' },
+        (payload) => {
+          console.log('Categories changed:', payload);
+          fetchTrackers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
   // Handle category filter
@@ -86,6 +103,7 @@ const HomepageDashboard = () => {
           .insert([newTracker]);
         if (error) throw error;
       }
+      await fetchTrackers();
       setEditingTracker(null);
       setShowAddForm(false);
       setNewTracker({
@@ -109,7 +127,7 @@ const HomepageDashboard = () => {
           .delete()
           .eq('id', id);
         if (error) throw error;
-        setTrackers(trackers.filter(t => t.id !== id));
+        await fetchTrackers();
       } catch (err) {
         console.error('Error deleting tracker:', err);
       }
@@ -165,12 +183,8 @@ const HomepageDashboard = () => {
 
       if (updateError) throw updateError;
 
-      // Update local state
-      setTrackers(trackers.map(t => 
-        t.id === editingTrackerHero.id 
-          ? { ...t, hero_image_url: imageUrl }
-          : t
-      ));
+      // Refresh all trackers
+      await fetchTrackers();
 
       setShowEditHero(false);
       setHeroImageFile(null);
@@ -203,6 +217,15 @@ const HomepageDashboard = () => {
         .insert([promiseToSave]);
 
       if (error) throw error;
+
+      // Refresh filtered promises
+      if (categoryFilter) {
+        const { data: promises } = await supabase
+          .from('promises')
+          .select('*')
+          .eq('category_id', categoryFilter);
+        setFilteredPromises(promises || []);
+      }
 
       setShowAddPromiseForm(false);
       setNewPromise({
