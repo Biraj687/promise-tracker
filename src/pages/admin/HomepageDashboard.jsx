@@ -29,6 +29,11 @@ const HomepageDashboard = () => {
   const [activeTab, setActiveTab] = useState('trackers');
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [filteredPromises, setFilteredPromises] = useState([]);
+  const [showEditHero, setShowEditHero] = useState(false);
+  const [editingTrackerHero, setEditingTrackerHero] = useState(null);
+  const [heroImageFile, setHeroImageFile] = useState(null);
+  const [heroImagePreview, setHeroImagePreview] = useState(null);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const [showAddPromiseForm, setShowAddPromiseForm] = useState(false);
   const [newPromise, setNewPromise] = useState({
     title: '',
@@ -38,14 +43,24 @@ const HomepageDashboard = () => {
     category_id: null
   });
 
-  // Load data
+  // Load data - fetch from DB to avoid dummy data replacement
   useEffect(() => {
-    if (categories && categories.length > 0) {
-      setTrackers(categories.slice(0, 3));
-    } else {
-      setTrackers([]);
-    }
-  }, [categories]);
+    const fetchTrackers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('*')
+          .order('display_order', { ascending: true })
+          .limit(3);
+        if (error) throw error;
+        setTrackers(data || []);
+      } catch (err) {
+        console.error('Error fetching trackers:', err);
+        setTrackers([]);
+      }
+    };
+    fetchTrackers();
+  }, []);
 
   // Handle category filter
   useEffect(() => {
@@ -101,6 +116,74 @@ const HomepageDashboard = () => {
     }
   };
 
+  // Get category stats
+  const getCategoryStats = (categoryId) => {
+    const catPromises = promises.filter(p => (p.categoryId || p.category_id) === categoryId);
+    return {
+      total: catPromises.length,
+      completed: catPromises.filter(p => p.status === 'Completed').length,
+      inProgress: catPromises.filter(p => p.status === 'In Progress').length,
+    };
+  };
+
+  // Handle hero image upload
+  const handleHeroImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setHeroImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setHeroImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadHeroImage = async () => {
+    if (!heroImageFile || !editingTrackerHero) return;
+
+    setUploadingHero(true);
+    try {
+      const fileName = `${Date.now()}-${heroImageFile.name}`;
+      const { data, error: uploadError } = await supabase.storage
+        .from('tracker-images')
+        .upload(`hero/${fileName}`, heroImageFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabase.storage
+        .from('tracker-images')
+        .getPublicUrl(`hero/${fileName}`);
+
+      const imageUrl = publicData.publicUrl;
+
+      // Update tracker with new hero image
+      const { error: updateError } = await supabase
+        .from('categories')
+        .update({ hero_image_url: imageUrl })
+        .eq('id', editingTrackerHero.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setTrackers(trackers.map(t => 
+        t.id === editingTrackerHero.id 
+          ? { ...t, hero_image_url: imageUrl }
+          : t
+      ));
+
+      setShowEditHero(false);
+      setHeroImageFile(null);
+      setHeroImagePreview(null);
+      setEditingTrackerHero(null);
+    } catch (error) {
+      console.error('Error uploading hero image:', error);
+      alert('Failed to upload image');
+    } finally {
+      setUploadingHero(false);
+    }
+  };
+
   // Save promise
   const savePromise = async () => {
     try {
@@ -135,16 +218,6 @@ const HomepageDashboard = () => {
     }
   };
 
-  // Get category stats
-  const getCategoryStats = (categoryId) => {
-    const catPromises = promises.filter(p => (p.categoryId || p.category_id) === categoryId);
-    return {
-      total: catPromises.length,
-      completed: catPromises.filter(p => p.status === 'Completed').length,
-      inProgress: catPromises.filter(p => p.status === 'In Progress').length,
-    };
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -171,7 +244,9 @@ const HomepageDashboard = () => {
               <h2 className="text-4xl font-black text-primary mb-2 font-headline">Hero Section</h2>
               <p className="text-on-surface-variant">Manage the main homepage hero section title and content</p>
             </div>
-            <button className="px-6 py-3 bg-secondary text-white rounded-xl font-bold hover:shadow-lg transition-all">
+            <button 
+              onClick={() => setShowEditHero(true)}
+              className="px-6 py-3 bg-secondary text-white rounded-xl font-bold hover:shadow-lg transition-all">
               Edit Hero Content
             </button>
           </div>
@@ -377,7 +452,6 @@ const HomepageDashboard = () => {
                 </AnimatePresence>
 
                 {/* Tracker Cards Grid */}
-                {trackers && trackers.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {trackers.map((tracker) => {
                     const stats = getCategoryStats(tracker.id);
@@ -388,12 +462,12 @@ const HomepageDashboard = () => {
                         className="group bg-white rounded-2xl overflow-hidden border border-outline-variant shadow-sm hover:shadow-premium transition-all"
                       >
                         {/* Header with Image */}
-                        <div className="relative h-40 overflow-hidden bg-slate-100">
-                          {tracker.image_url ? (
+                        <div className="relative h-40 overflow-hidden bg-slate-100 group/image">
+                          {tracker.hero_image_url ? (
                             <img
-                              src={tracker.image_url}
+                              src={tracker.hero_image_url}
                               alt={tracker.name}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              className="w-full h-full object-cover group-hover/image:scale-110 transition-transform duration-500"
                               onError={(e) => (e.target.src = 'https://via.placeholder.com/400x200?text=No+Image')}
                             />
                           ) : (
@@ -402,6 +476,17 @@ const HomepageDashboard = () => {
                             </div>
                           )}
                           <div className="absolute inset-0 bg-linear-to-t from-primary/80 to-transparent" />
+                          <button
+                            onClick={() => {
+                              setEditingTrackerHero(tracker);
+                              setShowEditHero(true);
+                              setHeroImagePreview(tracker.hero_image_url);
+                            }}
+                            className="absolute top-2 right-2 bg-primary/80 hover:bg-primary text-white p-2 rounded-full opacity-0 group-hover/image:opacity-100 transition-opacity"
+                            title="Edit Hero Image"
+                          >
+                            <Upload size={18} />
+                          </button>
                         </div>
 
                         {/* Content */}
@@ -452,29 +537,6 @@ const HomepageDashboard = () => {
                     );
                   })}
                 </div>
-                ) : (
-                  <div className="text-center py-16 bg-surface rounded-2xl border border-outline-variant/50">
-                    <LayoutDashboard size={48} className="mx-auto text-slate-300 mb-4" />
-                    <p className="text-on-surface-variant font-medium mb-4">No trackers found</p>
-                    <p className="text-sm text-on-surface-variant/70 mb-6">Create your first tracker to get started</p>
-                    <button
-                      onClick={() => {
-                        setShowAddForm(true);
-                        setEditingTracker(null);
-                        setNewTracker({
-                          name: '',
-                          description: '',
-                          image_url: '',
-                          color: 'bg-primary',
-                          display_order: 0
-                        });
-                      }}
-                      className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2 mx-auto"
-                    >
-                      <Plus size={20} /> Create First Tracker
-                    </button>
-                  </div>
-                )}
               </motion.div>
             )}
 
@@ -787,6 +849,66 @@ const HomepageDashboard = () => {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* EDIT HERO IMAGE MODAL */}
+      <AnimatePresence>
+        {showEditHero && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowEditHero(false)}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl p-8 max-w-md w-full"
+            >
+              <h3 className="text-2xl font-bold text-primary mb-6">Upload Hero Section Image</h3>
+
+              {heroImagePreview && (
+                <div className="mb-6">
+                  <img
+                    src={heroImagePreview}
+                    alt="Preview"
+                    className="w-full h-40 object-cover rounded-xl"
+                  />
+                </div>
+              )}
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleHeroImageSelect}
+                className="w-full mb-6 px-4 py-3 border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+
+              <div className="flex gap-3">
+                <button
+                  onClick={uploadHeroImage}
+                  disabled={!heroImageFile || uploadingHero}
+                  className="flex-1 bg-primary hover:bg-primary/90 disabled:bg-slate-300 text-white px-4 py-3 rounded-xl font-bold transition"
+                >
+                  {uploadingHero ? 'Uploading...' : 'Upload'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEditHero(false);
+                    setHeroImageFile(null);
+                    setHeroImagePreview(null);
+                  }}
+                  className="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* FOOTER PLACEHOLDER */}
       <footer className="bg-primary text-white mt-12 border-t border-primary/20">
